@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0b0d10">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="description" content="A free teleprompter that follows your voice, cuts your fluffs and captions your videos.">
 <title>Cue Prompter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,37 +18,93 @@
 </head>
 <body>
 
-<!-- ============ Setup ============ -->
-<section id="setup">
-  <div class="brand"><div class="dot"></div><h1>Cue Prompter</h1><span id="wc"></span></div>
+<!-- ============ Inbox ============ -->
+<section id="home" class="page">
+  <header class="brand"><div class="dot"></div><h1>Cue Prompter</h1><span id="inboxCount"></span></header>
 
-  <label class="lbl" for="script">Your script</label>
-  <textarea id="script" spellcheck="true" placeholder="Paste your script here…"></textarea>
-  <p class="note">Put a line with <code>---</code> between scripts to film them back to back. <code>[pause]</code> and <code>(smile)</code> show as cues, not words to read. Wrap words in <code>*stars*</code> to emphasise them.</p>
+  <div class="toolbar">
+    <button id="pasteBtn" type="button" class="primary">Paste script</button>
+    <button id="newBtn" type="button" class="ghost">Write one</button>
+    <button id="sendAll" type="button" class="ghost" hidden>Send new to phone</button>
+  </div>
 
-  <div class="field">
-    <span class="lbl">Scrolling</span>
-    <div class="seg">
-      <button type="button" id="mVoice" aria-pressed="true">Follows my voice</button>
-      <button type="button" id="mTimed" aria-pressed="false">Timed</button>
+  <ul id="list" class="list" aria-label="Scripts"></ul>
+  <div id="empty" class="empty" hidden>
+    <p><b>No scripts yet.</b></p>
+    <p>Write one in Claude or anywhere else, copy it, then tap <b>Paste script</b>. Scripts sent from your computer show up here too.</p>
+  </div>
+
+  <details class="settings">
+    <summary>Prompter settings</summary>
+    <div class="settings-body">
+      <div class="field">
+        <span class="lbl">Scrolling</span>
+        <div class="seg">
+          <button type="button" id="mVoice" aria-pressed="true">Follows my voice</button>
+          <button type="button" id="mTimed" aria-pressed="false">Timed</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label class="lbl" for="speed">Target pace</label><input id="speed" type="range" min="40" max="240" step="5" value="130"><output id="speedOut"></output></div>
+        <div class="field"><label class="lbl" for="size">Text size</label><input id="size" type="range" min="20" max="60" step="2" value="30"><output id="sizeOut"></output></div>
+      </div>
+      <div class="toggles">
+        <button class="chip" id="tMirror" type="button" aria-pressed="true">Mirror preview</button>
+        <button class="chip" id="tFront" type="button" aria-pressed="true">Front camera</button>
+        <button class="chip" id="tSafe" type="button" aria-pressed="false">TikTok safe zones</button>
+        <button class="chip" id="tFlip" type="button" aria-pressed="false">Flip text for a mirror rig</button>
+      </div>
     </div>
-  </div>
+  </details>
 
-  <div class="row">
-    <div class="field"><label class="lbl" for="speed">Target pace</label><input id="speed" type="range" min="40" max="240" step="5" value="130"><output id="speedOut"></output></div>
-    <div class="field"><label class="lbl" for="size">Text size</label><input id="size" type="range" min="20" max="60" step="2" value="30"><output id="sizeOut"></output></div>
-  </div>
-
-  <div class="toggles">
-    <button class="chip" id="tMirror" type="button" aria-pressed="true">Mirror preview</button>
-    <button class="chip" id="tFront" type="button" aria-pressed="true">Front camera</button>
-    <button class="chip" id="tSafe" type="button" aria-pressed="false">TikTok safe zones</button>
-    <button class="chip" id="tFlip" type="button" aria-pressed="false">Flip text for a mirror rig</button>
-  </div>
-
-  <button class="go" id="start" type="button">Open camera</button>
-  <p class="note">Hold the phone upright. The line you're on sits just under the lens, so your eyes stay on camera. Tap the text to pause, drag it to jump.</p>
+  <details class="settings">
+    <summary>How it works</summary>
+    <div class="settings-body help">
+      <p><b>Script on your computer, camera on your phone.</b> Open this page on the computer, paste the script, tap <b>⋯</b> then <b>Send to phone</b>, and scan the code with your phone's camera.</p>
+      <p><b>Script cues.</b> <code>[pause]</code> and <code>(smile)</code> show as cues, not words to read. <code>*word*</code> adds emphasis. A line of <code>---</code> splits one paste into several scripts.</p>
+      <p><b>Getting the video back.</b> After a take, tap <b>Share</b> to send it by AirDrop, Google Drive, iCloud or WhatsApp, or straight into CapCut. On a computer it saves to Downloads.</p>
+      <p><b>Recording on a computer.</b> This page works with a laptop webcam too. Space pauses, R records, Page Up redoes a line.</p>
+      <p id="installNote"><b>Make it an app.</b> On iPhone, tap Share, then Add to Home Screen. In Chrome, tap the menu, then Install app.</p>
+    </div>
+  </details>
 </section>
+
+<!-- ============ Editor ============ -->
+<section id="editor" class="page" hidden>
+  <header class="brand"><button id="edCancel" type="button" class="link">‹ Inbox</button><h1 id="edTitle">New script</h1><span id="edMeta"></span></header>
+  <label class="lbl" for="edText">Script</label>
+  <textarea id="edText" spellcheck="true" placeholder="Paste or write your script…"></textarea>
+  <p class="note"><code>[pause]</code> <code>(smile)</code> show as cues. <code>*word*</code> adds emphasis. A line of <code>---</code> splits it into several scripts.</p>
+  <button id="edSave" type="button" class="go">Add to inbox</button>
+</section>
+
+<!-- per-script options -->
+<div id="sheet" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="sheetTitle">
+    <p id="sheetTitle" class="sheet-title"></p>
+    <button id="shSend" type="button">Send to phone</button>
+    <button id="shEdit" type="button">Edit</button>
+    <button id="shMark" type="button">Mark as recorded</button>
+    <button id="shDelete" type="button" class="danger">Remove</button>
+    <button id="shCancel" type="button" class="cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- send to phone -->
+<div id="send" class="overlay" hidden>
+  <div class="sheet send" role="dialog" aria-labelledby="sendTitle">
+    <p class="lbl">Send to phone</p>
+    <p id="sendTitle" class="sheet-title"></p>
+    <div id="qrBox" class="qr"></div>
+    <p id="qrNote" class="note"></p>
+    <input id="sendLink" type="text" readonly aria-label="Script link">
+    <div class="acts">
+      <button id="copyLink" type="button" class="ghost">Copy link</button>
+      <button id="shareLink" type="button" class="ghost">Share link</button>
+    </div>
+    <button id="sendClose" type="button" class="cancel">Done</button>
+  </div>
+</div>
 
 <!-- ============ Stage ============ -->
 <section id="stage" hidden>
@@ -74,7 +134,6 @@
 
   <div id="count" hidden></div>
   <div id="again" hidden><span id="againTxt"></span><i id="againBar"></i></div>
-  <div id="toast" hidden role="status"></div>
   <div id="err" hidden></div>
 
   <div id="hud">
@@ -84,7 +143,7 @@
       <div class="pill"><button id="modeBtn" type="button" class="txt" aria-label="Switch scroll mode"><span id="modeLbl">Voice</span></button><button id="safeBtn" type="button" aria-label="Show TikTok safe zones" aria-pressed="false">▢</button></div>
     </div>
     <div class="bar main">
-      <button class="side" id="back" type="button" aria-label="Edit script">✎</button>
+      <button class="side" id="back" type="button" aria-label="Back to inbox">☰</button>
       <button class="side" id="play" type="button" aria-label="Start">▶</button>
       <button class="big" id="rec" type="button" aria-label="Start recording"><i></i></button>
       <button class="side" id="redo" type="button" aria-label="Back to the start">↺<span id="redoTxt"></span></button>
@@ -105,17 +164,22 @@
       <a id="dlClean" class="primary" href="#" hidden>Save clean video</a>
     </div>
     <div class="acts">
-      <a id="dlRaw" class="ghost" href="#">Save raw take</a>
-      <a id="dlSrt" class="ghost" href="#">Captions (.srt)</a>
+      <button id="shareVid" type="button" class="ghost">Share raw take</button>
+      <button id="shareSrt" type="button" class="ghost">Share captions</button>
     </div>
     <div class="acts">
       <button id="againBtn" type="button" class="ghost">Record again</button>
       <button id="nextScript" type="button" class="ghost" hidden>Next script ›</button>
     </div>
-    <p class="note">The clean video cuts your redos and dead air, then plays through once to build the file, so keep this screen open. On iPhone, if Save opens the video, tap Share, then Save Video.</p>
+    <button id="toInbox" type="button" class="link">‹ Back to inbox</button>
+    <a id="dlRaw" href="#" hidden></a><a id="dlSrt" href="#" hidden></a>
+    <p class="note">The clean video cuts your redos and dead air, then plays through once to build the file, so keep this screen open. Share sends the video to AirDrop, Drive, iCloud or CapCut. On a computer it saves to Downloads.</p>
   </div>
 </div>
 
+<div id="toast" hidden role="status"></div>
+
+<script src="qrcode.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -200,23 +200,21 @@ Try it tonight and tell me how you get on.`;
 
   const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
   let toastId = 0;
-  function toast(msg, ms = 2600) {
+  function toast(msg, ms = 2600, action, fn) {
     const t = $("toast"); t.textContent = msg; t.hidden = false;
+    if (action) {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = action;
+      b.onclick = () => { t.hidden = true; fn(); }; t.appendChild(b);
+    }
     clearTimeout(toastId); toastId = setTimeout(() => { t.hidden = true; }, ms);
   }
   function showErr(msg) { $("err").textContent = msg; $("err").hidden = !msg; }
 
-  /* ---------- setup screen ---------- */
-  $("script").value = store.get("cue.script", SAMPLE);
+  /* ---------- settings ---------- */
   $("speed").value = S.speed; $("size").value = S.size;
-
-  function updMeta() {
-    const scripts = Core.splitScripts($("script").value);
-    const words = scripts.reduce((n, s) => n + Core.parse(s).words.length, 0);
-    $("wc").textContent = (scripts.length > 1 ? scripts.length + " scripts · " : "") + words + " words · ~" + fmt(words / S.speed * 60);
+  function updLabels() {
     $("speedOut").textContent = S.speed + " wpm"; $("sizeOut").textContent = S.size + " px";
     $("sLbl").textContent = S.speed; $("fLbl").textContent = S.size;
-    $("start").textContent = scripts.length > 1 ? `Open camera · ${scripts.length} scripts` : "Open camera";
   }
   function syncChips() {
     $("mVoice").setAttribute("aria-pressed", S.mode === "voice");
@@ -226,22 +224,216 @@ Try it tonight and tell me how you get on.`;
     $("safe").hidden = !S.safe; $("safeBtn").setAttribute("aria-pressed", S.safe);
     $("burn").checked = S.burn;
   }
-  $("script").addEventListener("input", () => { store.set("cue.script", $("script").value); updMeta(); });
-  $("speed").addEventListener("input", e => { S.speed = +e.target.value; saveSettings(); updMeta(); });
-  $("size").addEventListener("input", e => { S.size = +e.target.value; saveSettings(); setFs(); updMeta(); });
+  $("speed").addEventListener("input", e => { S.speed = +e.target.value; saveSettings(); updLabels(); });
+  $("size").addEventListener("input", e => { S.size = +e.target.value; saveSettings(); setFs(); updLabels(); });
   $("mVoice").onclick = () => { S.mode = "voice"; saveSettings(); syncChips(); };
   $("mTimed").onclick = () => { S.mode = "timed"; saveSettings(); syncChips(); };
   [["tMirror", "mirror"], ["tFront", "front"], ["tFlip", "flip"], ["tSafe", "safe"]].forEach(([id, k]) => {
     $(id).onclick = () => { S[k] = !S[k]; saveSettings(); syncChips(); };
   });
   $("burn").onchange = e => { S.burn = e.target.checked; saveSettings(); resetClean(); };
-  syncChips(); updMeta();
+  syncChips(); updLabels();
+
+  /* ---------- script inbox ---------- */
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  let lib = store.get("cue.lib", null);
+  if (!Array.isArray(lib)) {
+    const now = Date.now();
+    // first visit: one example script, unless this visit is bringing scripts in by link
+    const arriving = /[#&](z|add)=/.test(location.hash);
+    const old = store.get("cue.script", null);
+    const seed = old ? Core.splitScripts(old) : (arriving ? [] : Core.splitScripts(SAMPLE).slice(0, 1));
+    lib = seed.map((text, k) => ({ id: uid() + k, text, created: now - k, status: "new" }));
+  }
+  const saveLib = () => store.set("cue.lib", lib);
+  const byId = id => lib.find(s => s.id === id);
+  const inbox = () => lib.filter(s => !s.archived).sort((a, b) => b.created - a.created);
+  saveLib();
+
+  function addScripts(texts, source) {
+    const now = Date.now();
+    const fresh = texts.filter(t => t && !lib.some(s => !s.archived && s.text === t));
+    fresh.forEach((text, k) => lib.push({ id: uid() + k, text, created: now - k, status: "new", source }));
+    saveLib(); return fresh.length;
+  }
+  function setStatus(id, status) {
+    const s = byId(id); if (!s) return;
+    if (status === "opened" && s.status !== "new") return;
+    s.status = status; if (status === "recorded") s.recordedAt = Date.now();
+    saveLib();
+  }
+  const shortDate = ts => {
+    const d = new Date(ts), today = new Date();
+    if (d.toDateString() === today.toDateString()) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString([], { day: "numeric", month: "short" });
+  };
+
+  function renderHome() {
+    const items = inbox(), list = $("list");
+    list.textContent = "";
+    $("empty").hidden = items.length > 0;
+    const nNew = items.filter(s => s.status === "new").length;
+    $("inboxCount").textContent = items.length ? (nNew ? `${nNew} new · ` : "") + `${items.length} script${items.length > 1 ? "s" : ""}` : "";
+    $("sendAll").hidden = !nNew;
+    $("sendAll").textContent = nNew > 1 ? `Send ${nNew} new to phone` : "Send new to phone";
+    items.forEach(s => {
+      const words = Core.parse(s.text).words.length;
+      const li = document.createElement("li");
+      li.className = "item " + s.status;
+      const open = document.createElement("button");
+      open.type = "button"; open.className = "open";
+      open.innerHTML = '<span class="dot" aria-hidden="true"></span><span class="body"><span class="t"></span><span class="sub"></span></span><span class="state"></span>';
+      open.querySelector(".t").textContent = Core.titleOf(s.text);
+      const when = s.status === "recorded" ? "recorded " + shortDate(s.recordedAt) : "added " + shortDate(s.created);
+      open.querySelector(".sub").textContent = `${words} words · ~${fmt(words / S.speed * 60)} · ${when}`;
+      open.querySelector(".state").textContent = s.status === "recorded" ? "✓ Done" : s.status === "opened" ? "Opened" : "New";
+      open.setAttribute("aria-label", `${Core.titleOf(s.text)}, ${s.status}. Open in prompter`);
+      open.onclick = () => openScript(s.id);
+      const more = document.createElement("button");
+      more.type = "button"; more.className = "more"; more.textContent = "⋯";
+      more.setAttribute("aria-label", "Options for " + Core.titleOf(s.text));
+      more.onclick = () => openSheet(s.id);
+      li.append(open, more); list.appendChild(li);
+    });
+  }
+
+  /* per-script options */
+  let sheetId = null;
+  function openSheet(id) {
+    const s = byId(id); if (!s) return;
+    sheetId = id;
+    $("sheetTitle").textContent = Core.titleOf(s.text);
+    $("shMark").textContent = s.status === "recorded" ? "Mark as not recorded" : "Mark as recorded";
+    $("sheet").hidden = false;
+  }
+  const closeSheet = () => { $("sheet").hidden = true; sheetId = null; };
+  $("sheet").addEventListener("click", e => { if (e.target === $("sheet")) closeSheet(); });
+  $("shCancel").onclick = closeSheet;
+  $("shSend").onclick = () => { const s = byId(sheetId); closeSheet(); if (s) showSend([s.text], Core.titleOf(s.text)); };
+  $("shEdit").onclick = () => { const id = sheetId; closeSheet(); openEditor(id); };
+  $("shMark").onclick = () => {
+    const s = byId(sheetId);
+    if (s) { if (s.status === "recorded") { s.status = "opened"; delete s.recordedAt; saveLib(); } else setStatus(s.id, "recorded"); }
+    closeSheet(); renderHome();
+  };
+  $("shDelete").onclick = () => {
+    const s = byId(sheetId); closeSheet(); if (!s) return;
+    s.archived = true; saveLib(); renderHome();
+    toast("Script removed", 4000, "Undo", () => { s.archived = false; saveLib(); renderHome(); });
+  };
+
+  /* editor */
+  let editId = null;
+  function openEditor(id, text) {
+    editId = id || null;
+    const s = id ? byId(id) : null;
+    $("edTitle").textContent = s ? "Edit script" : "New script";
+    $("edText").value = s ? s.text : (text || "");
+    $("edSave").textContent = s ? "Save" : "Add to inbox";
+    $("home").hidden = true; $("editor").hidden = false;
+    edMeta(); $("edText").focus();
+  }
+  function edMeta() {
+    const parts = Core.splitScripts($("edText").value);
+    const words = parts.reduce((n, t) => n + Core.parse(t).words.length, 0);
+    $("edMeta").textContent = (parts.length > 1 ? parts.length + " scripts · " : "") + words + " words · ~" + fmt(words / S.speed * 60);
+    if (!editId) $("edSave").textContent = parts.length > 1 ? `Add ${parts.length} scripts` : "Add to inbox";
+  }
+  $("edText").addEventListener("input", edMeta);
+  $("edCancel").onclick = () => { $("editor").hidden = true; $("home").hidden = false; renderHome(); };
+  $("edSave").onclick = () => {
+    const parts = Core.splitScripts($("edText").value);
+    if (!parts.length) { $("edText").focus(); return; }
+    if (editId) {
+      const s = byId(editId); s.text = parts[0]; saveLib();
+      if (parts.length > 1) addScripts(parts.slice(1), "typed");
+    } else {
+      const n = addScripts(parts, "typed");
+      toast(n ? (n > 1 ? `${n} scripts added` : "Script added") : "That script is already in your inbox");
+    }
+    $("editor").hidden = true; $("home").hidden = false; renderHome();
+  };
+  $("newBtn").onclick = () => openEditor();
+  $("pasteBtn").onclick = async () => {
+    let text = "";
+    try { text = await navigator.clipboard.readText(); } catch (e) {}
+    openEditor(null, text);
+    if (!text) toast("Paste your script into the box");
+  };
+
+  /* ---------- sending scripts between devices ---------- */
+  const b64url = bytes => { let s = ""; bytes.forEach(b => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+  const unb64url = str => { const s = atob(str.replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(s, c => c.charCodeAt(0)); };
+  async function packScripts(texts) {
+    const joined = texts.join("\n\n---\n\n");
+    if (window.CompressionStream) {
+      try {
+        const buf = await new Response(new Blob([joined]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer();
+        return "z=" + b64url(new Uint8Array(buf));
+      } catch (e) {}
+    }
+    return "add=" + encodeURIComponent(joined);
+  }
+  async function unpack(hash) {
+    const q = new URLSearchParams(hash.replace(/^#/, ""));
+    if (q.get("z")) {
+      const bytes = unb64url(q.get("z"));
+      return await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+    }
+    if (q.get("add") != null) return q.get("add");
+    return null;
+  }
+  const appUrl = () => location.origin + location.pathname;
+
+  async function showSend(texts, label) {
+    const link = appUrl() + "#" + await packScripts(texts);
+    $("sendTitle").textContent = label;
+    $("sendLink").value = link;
+    const box = $("qrBox"); box.textContent = "";
+    try {
+      const qr = qrcode(0, "L"); qr.addData(link, "Byte"); qr.make();
+      box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+      $("qrNote").textContent = "Point your phone's camera at the code, then tap the link it shows. The script lands in your inbox on the phone.";
+    } catch (e) {
+      box.innerHTML = '<p class="qr-too-long">Too long for one QR code. Copy the link instead, or send scripts one at a time.</p>';
+      $("qrNote").textContent = "";
+    }
+    $("shareLink").hidden = !navigator.share;
+    $("send").hidden = false;
+  }
+  $("sendAll").onclick = () => {
+    const fresh = inbox().filter(s => s.status === "new");
+    showSend(fresh.map(s => s.text), fresh.length > 1 ? `${fresh.length} new scripts` : Core.titleOf(fresh[0].text));
+  };
+  $("sendClose").onclick = () => { $("send").hidden = true; };
+  $("send").addEventListener("click", e => { if (e.target === $("send")) $("send").hidden = true; });
+  $("copyLink").onclick = async () => {
+    try { await navigator.clipboard.writeText($("sendLink").value); toast("Link copied"); }
+    catch (e) { $("sendLink").select(); toast("Select the link and copy it"); }
+  };
+  $("shareLink").onclick = async () => {
+    try { await navigator.share({ title: "Cue Prompter script", url: $("sendLink").value }); } catch (e) {}
+  };
+
+  async function importFromHash() {
+    if (!location.hash || location.hash.length < 3) return;
+    let text = null;
+    try { text = await unpack(location.hash); } catch (e) { toast("That script link looks damaged. Ask for it to be sent again.", 4500); }
+    history.replaceState(null, "", location.pathname + location.search);
+    if (text == null) return;
+    const parts = Core.splitScripts(text);
+    const n = addScripts(parts, "link");
+    renderHome();
+    toast(n ? (n > 1 ? `${n} new scripts in your inbox` : "New script in your inbox") : "Already in your inbox");
+  }
+  window.addEventListener("hashchange", importFromHash);
 
   /* ---------- rendering the script ---------- */
   function setFs() { document.documentElement.style.setProperty("--fs", S.size + "px"); }
 
   function loadScript(i) {
-    S.qi = i; S.doc = Core.parse(S.scripts[i]); S.words = S.doc.words;
+    S.qi = i; S.doc = Core.parse(S.scripts[i].text); S.words = S.doc.words;
+    setStatus(S.scripts[i].id, "opened");
     const t = $("text"); t.textContent = ""; S.spans = [];
     for (const items of S.doc.paras) {
       const p = document.createElement("p");
@@ -259,7 +451,7 @@ Try it tonight and tell me how you get on.`;
     S.ptr = 0; S.ptrF = 0; S.offset = 0; setPtr(0, false);
     const multi = S.scripts.length > 1;
     $("queue").hidden = !multi;
-    $("qLbl").textContent = `${i + 1}/${S.scripts.length} · ${Core.titleOf(S.scripts[i])}`;
+    $("qLbl").textContent = `${i + 1}/${S.scripts.length} · ${Core.titleOf(S.scripts[i].text)}`;
     $("qPrev").disabled = i === 0; $("qNext").disabled = i >= S.scripts.length - 1;
   }
 
@@ -341,7 +533,7 @@ Try it tonight and tell me how you get on.`;
 
   function bump(key, d, min, max) {
     S[key] = Math.min(max, Math.max(min, S[key] + d)); $(key).value = S[key];
-    saveSettings(); if (key === "size") setFs(); updMeta();
+    saveSettings(); if (key === "size") setFs(); updLabels();
   }
   $("sUp").onclick = () => bump("speed", 10, 40, 240); $("sDown").onclick = () => bump("speed", -10, 40, 240);
   $("fUp").onclick = () => bump("size", 2, 20, 60); $("fDown").onclick = () => bump("size", -2, 20, 60);
@@ -410,14 +602,15 @@ Try it tonight and tell me how you get on.`;
     }
     try {
       S.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: S.front ? "user" : "environment", width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } },
+        video: Object.assign({ facingMode: S.front ? "user" : "environment", frameRate: { ideal: 30 } },
+          innerWidth > innerHeight ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : { width: { ideal: 1080 }, height: { ideal: 1920 } }),
         audio: { echoCancellation: true, noiseSuppression: true }
       });
       const v = $("cam"); v.srcObject = S.stream; v.classList.toggle("mirror", S.mirror && S.front);
       await v.play().catch(() => {});
     } catch (e) {
       showErr(e.name === "NotAllowedError"
-        ? "Camera or microphone access was blocked. Allow both for this site in your browser settings, then tap ✎ and Open camera again."
+        ? "Camera or microphone access was blocked. Allow both for this site in your browser settings, then go back to the inbox and open the script again."
         : "The camera didn't start: " + e.message);
     }
   }
@@ -425,20 +618,20 @@ Try it tonight and tell me how you get on.`;
   async function wake() { try { S.wake = await navigator.wakeLock.request("screen"); } catch (e) {} }
   document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("stage").hidden) wake(); });
 
-  $("start").onclick = async () => {
-    S.scripts = Core.splitScripts($("script").value);
-    if (!S.scripts.length) { $("script").focus(); return; }
-    $("setup").hidden = true; $("stage").hidden = false;
-    loadScript(0); requestAnimationFrame(place);
+  async function openScript(id) {
+    S.scripts = inbox();
+    const i = Math.max(0, S.scripts.findIndex(x => x.id === id));
+    $("home").hidden = true; $("stage").hidden = false;
+    loadScript(i); requestAnimationFrame(place);
     await openCam(); wake();
     if (S.mode === "voice" && !SR) fallbackTimed("Voice follow isn't available in this browser, so it's on timed scroll.");
-  };
+  }
   function backToSetup() {
     if (S.recording) return;
     setPlaying(false);
     if (S.stream) S.stream.getTracks().forEach(t => t.stop()); S.stream = null;
     try { S.wake && S.wake.release(); } catch (e) {}
-    $("stage").hidden = true; $("setup").hidden = false;
+    $("stage").hidden = true; $("home").hidden = false; renderHome();
   }
   $("back").onclick = backToSetup;
   $("qPrev").onclick = () => { if (!S.recording && S.qi > 0) { setPlaying(false); loadScript(S.qi - 1); } };
@@ -541,6 +734,7 @@ Try it tonight and tell me how you get on.`;
     S.raw = { blob, url: URL.createObjectURL(blob), ext: mt.includes("mp4") ? "mp4" : "webm", type: mt };
     S.edit = Core.buildEdit(S.at, S.cuts, S.recDur);
     S.capChunks = Core.chunks(S.words, S.at);
+    setStatus(S.scripts[S.qi].id, "recorded");
     showResult();
   }
 
@@ -549,18 +743,21 @@ Try it tonight and tell me how you get on.`;
   function resetClean() {
     if (S.clean) { URL.revokeObjectURL(S.clean.url); S.clean = null; }
     $("dlClean").hidden = true; $("exportBtn").hidden = false;
+    $("shareVid").textContent = "Share raw take";
     if (S.raw && !$("result").hidden) $("playback").src = S.raw.url;
   }
   function showResult() {
     resetClean();
+    $("toast").hidden = true;
     const e = S.edit, saved = e.dur - e.cleanDur;
-    const name = "take-" + (S.qi + 1) + "-" + stamp();
+    const slug = Core.titleOf(S.scripts[S.qi].text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32) || "take";
+    const name = slug + "-" + stamp();
     $("playback").src = S.raw.url;
     $("dlRaw").href = S.raw.url; $("dlRaw").download = name + "-raw." + S.raw.ext;
     const srt = Core.srt(S.capChunks, e.cuts);
     if (S.srtUrl) URL.revokeObjectURL(S.srtUrl);
     S.srtUrl = URL.createObjectURL(new Blob([srt], { type: "application/x-subrip" }));
-    $("dlSrt").href = S.srtUrl; $("dlSrt").download = name + ".srt"; $("dlSrt").hidden = !srt;
+    $("dlSrt").href = S.srtUrl; $("dlSrt").download = name + ".srt"; $("shareSrt").hidden = !srt;
     S.baseName = name;
     $("stats").textContent =
       `Take ${fmt(e.dur)}` +
@@ -650,10 +847,11 @@ Try it tonight and tell me how you get on.`;
       const mt = (mr.mimeType || type || "video/webm").split(";")[0];
       const blob = new Blob(parts, { type: mt });
       if (!blob.size) throw new Error("nothing was recorded");
-      S.clean = { url: URL.createObjectURL(blob) };
+      S.clean = { url: URL.createObjectURL(blob), blob, ext: mt.includes("mp4") ? "mp4" : "webm" };
       $("playback").src = S.clean.url;
       $("dlClean").href = S.clean.url; $("dlClean").download = S.baseName + "-clean." + (mt.includes("mp4") ? "mp4" : "webm");
       $("dlClean").hidden = false; btn.hidden = true;
+      $("shareVid").textContent = "Share clean video";
       $("progBar").style.width = "100%";
       setTimeout(() => { $("prog").hidden = true; }, 600);
     } catch (e) {
@@ -666,7 +864,27 @@ Try it tonight and tell me how you get on.`;
     }
   }
   $("exportBtn").onclick = exportClean;
+
+  /* send the video to another device or app through the phone's share sheet */
+  async function shareOrSave(blob, filename, link) {
+    const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: filename }); return; }
+      catch (e) { if (e.name === "AbortError") return; }
+    }
+    link.click(); // computers: save to Downloads
+  }
+  $("shareVid").onclick = () => {
+    const v = S.clean || S.raw; if (!v) return;
+    const kind = S.clean ? "-clean." : "-raw.";
+    shareOrSave(v.blob, S.baseName + kind + (v.ext || S.raw.ext), S.clean ? $("dlClean") : $("dlRaw"));
+  };
+  $("shareSrt").onclick = async () => {
+    const blob = await fetch(S.srtUrl).then(r => r.blob());
+    shareOrSave(new File([blob], S.baseName + ".srt", { type: "text/plain" }), S.baseName + ".srt", $("dlSrt"));
+  };
   $("againBtn").onclick = () => { $("playback").pause(); $("result").hidden = true; setPtr(0, false); S.ptrF = 0; S.offset = 0; };
+  $("toInbox").onclick = () => { $("playback").pause(); $("result").hidden = true; backToSetup(); };
   $("nextScript").onclick = () => { $("playback").pause(); $("result").hidden = true; loadScript(S.qi + 1); };
 
   /* ---------- keyboard and Bluetooth clickers ---------- */
@@ -682,4 +900,12 @@ Try it tonight and tell me how you get on.`;
     else if (k === "ArrowLeft") $("qPrev").click();
     else if (k === "Escape") backToSetup();
   });
+
+  /* ---------- start ---------- */
+  renderHome();
+  importFromHash();
+  $("installNote").hidden = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
 })();

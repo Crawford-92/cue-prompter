@@ -2,6 +2,15 @@
 
 A free teleprompter that runs in your phone's browser. Paste a script, look at the camera, read, record.
 
+## How it works
+
+1. **Write the script anywhere**, for example in Claude, ChatGPT or Notes.
+2. **Get it into the inbox.** On the phone, copy it and tap **Paste script**. On a computer, paste it there, then tap **⋯ → Send to phone** (or **Send new to phone**) and scan the QR code with the phone's camera.
+3. **Record.** Tap a script to open it with the camera. New scripts have a yellow dot. Once opened they show **Opened**, and after a take they show **✓ Done** with the date.
+4. **Send the video back.** Tap **Share** to send it by AirDrop, Google Drive, iCloud or WhatsApp, or straight into CapCut. On a computer the video saves to Downloads.
+
+It also works on a laptop: open the page there and it uses the webcam.
+
 ## Features
 
 - **Follows your voice.** The script scrolls as you speak and waits when you pause. Timed scroll is there as a backup.
@@ -12,6 +21,20 @@ A free teleprompter that runs in your phone's browser. Paste a script, look at t
 - **TikTok safe zones.** An overlay shows where the app's buttons and caption will cover your shot.
 - **Script cues.** `[pause]` and `(smile)` show as yellow cues. `*word*` adds emphasis.
 - **Filming queue.** Separate scripts with a `---` line to film them back to back.
+
+- **Script inbox.** New, opened and done status, so you can see what's left to film.
+- **Send to phone.** A QR code or link carries scripts from the computer to the phone. There's no account or server, because the script travels inside the link.
+- **Installable.** Add it to your home screen and it opens like an app, even offline.
+
+## Script links
+
+Any tool can send a script by building a link:
+
+```
+https://<your-site>/#add=<URL-encoded script text>
+```
+
+Opening the link adds the script to the inbox on that device. Separate several scripts with a line of `---`. The app's own Send to phone button uses a compressed `#z=` form so the QR codes stay small.
 
 ## Controls
 
@@ -35,10 +58,12 @@ The camera only works over `https://`. GitHub Pages is free:
 
 - Voice follow uses the browser's built-in speech recognition. It works best in Chrome, and also works in Safari on iPhone. If it can't get the mic, the app switches to timed scroll by itself.
 - Building the clean video plays the take through once, so it takes about as long as the clean video runs. Keep the screen open while it runs.
-- Nothing is uploaded anywhere. Recordings stay on your device.
+- Nothing is uploaded anywhere. Scripts and recordings stay on your device, and the inbox status is saved per device.
 
 ## Code
 
 - `index.html` is the markup.
 - `style.css` is the styling.
-- `app.js` holds the app. The `Core` module at the top contains the pure logic (parsing, voice matching, cuts, captions). You can test it in Node with `require("./app.js")`.
+- `app.js` holds the app.
+- `qrcode.js` is the QR library (qrcode-generator, MIT licence).
+- `sw.js`, `manifest.webmanifest` and `icons/` make it installable and let it work offline. The `Core` module at the top contains the pure logic (parsing, voice matching, cuts, captions). You can test it in Node with `require("./app.js")`.
