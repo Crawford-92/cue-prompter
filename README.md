@@ -21,7 +21,6 @@ It also works on a laptop: open the page there and it uses the webcam.
 - **TikTok safe zones.** An overlay shows where the app's buttons and caption will cover your shot.
 - **Script cues.** `[pause]` and `(smile)` show as yellow cues. `*word*` adds emphasis.
 - **Filming queue.** Separate scripts with a `---` line to film them back to back.
-
 - **Script inbox.** New, opened and done status, so you can see what's left to film.
 - **Send to phone.** A QR code or link carries scripts from the computer to the phone. There's no account or server, because the script travels inside the link.
 - **Installable.** Add it to your home screen and it opens like an app, even offline.
@@ -64,6 +63,6 @@ The camera only works over `https://`. GitHub Pages is free:
 
 - `index.html` is the markup.
 - `style.css` is the styling.
-- `app.js` holds the app.
+- `app.js` holds the app. The `Core` module at the top contains the pure logic (parsing, voice matching, cuts, captions). You can test it in Node with `require("./app.js")`.
 - `qrcode.js` is the QR library (qrcode-generator, MIT licence).
-- `sw.js`, `manifest.webmanifest` and `icons/` make it installable and let it work offline. The `Core` module at the top contains the pure logic (parsing, voice matching, cuts, captions). You can test it in Node with `require("./app.js")`.
+- `sw.js`, `manifest.webmanifest` and `icons/` make it installable and let it work offline.
