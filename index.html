@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0d10">
+<title>Cue Prompter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ Setup ============ -->
+<section id="setup">
+  <div class="brand"><div class="dot"></div><h1>Cue Prompter</h1><span id="wc"></span></div>
+
+  <label class="lbl" for="script">Your script</label>
+  <textarea id="script" spellcheck="true" placeholder="Paste your script here…"></textarea>
+  <p class="note">Put a line with <code>---</code> between scripts to film them back to back. <code>[pause]</code> and <code>(smile)</code> show as cues, not words to read. Wrap words in <code>*stars*</code> to emphasise them.</p>
+
+  <div class="field">
+    <span class="lbl">Scrolling</span>
+    <div class="seg">
+      <button type="button" id="mVoice" aria-pressed="true">Follows my voice</button>
+      <button type="button" id="mTimed" aria-pressed="false">Timed</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field"><label class="lbl" for="speed">Target pace</label><input id="speed" type="range" min="40" max="240" step="5" value="130"><output id="speedOut"></output></div>
+    <div class="field"><label class="lbl" for="size">Text size</label><input id="size" type="range" min="20" max="60" step="2" value="30"><output id="sizeOut"></output></div>
+  </div>
+
+  <div class="toggles">
+    <button class="chip" id="tMirror" type="button" aria-pressed="true">Mirror preview</button>
+    <button class="chip" id="tFront" type="button" aria-pressed="true">Front camera</button>
+    <button class="chip" id="tSafe" type="button" aria-pressed="false">TikTok safe zones</button>
+    <button class="chip" id="tFlip" type="button" aria-pressed="false">Flip text for a mirror rig</button>
+  </div>
+
+  <button class="go" id="start" type="button">Open camera</button>
+  <p class="note">Hold the phone upright. The line you're on sits just under the lens, so your eyes stay on camera. Tap the text to pause, drag it to jump.</p>
+</section>
+
+<!-- ============ Stage ============ -->
+<section id="stage" hidden>
+  <video id="cam" playsinline autoplay muted></video>
+
+  <div id="safe" hidden aria-hidden="true">
+    <div class="z z-top"><span>Top bar</span></div>
+    <div class="z z-right"><span>Buttons</span></div>
+    <div class="z z-bottom"><span>Caption and username</span></div>
+  </div>
+
+  <div id="band">
+    <div id="hookbar"></div>
+    <div id="scroller"><div id="text"></div></div>
+  </div>
+  <div id="guide" aria-hidden="true"></div>
+
+  <div id="topbar">
+    <div id="queue" hidden>
+      <button id="qPrev" type="button" aria-label="Previous script">‹</button>
+      <span id="qLbl"></span>
+      <button id="qNext" type="button" aria-label="Next script">›</button>
+    </div>
+    <div id="listenDot" hidden title="Listening">Listening</div>
+    <div id="timer" hidden><b id="tTime">0:00</b><span id="tPace"></span></div>
+  </div>
+
+  <div id="count" hidden></div>
+  <div id="again" hidden><span id="againTxt"></span><i id="againBar"></i></div>
+  <div id="toast" hidden role="status"></div>
+  <div id="err" hidden></div>
+
+  <div id="hud">
+    <div class="bar">
+      <div class="pill"><button id="sDown" type="button" aria-label="Slower">−</button><b><span id="sLbl">130</span><small>wpm</small></b><button id="sUp" type="button" aria-label="Faster">+</button></div>
+      <div class="pill"><button id="fDown" type="button" aria-label="Smaller text" class="a-sm">A</button><b><span id="fLbl">30</span><small>px</small></b><button id="fUp" type="button" aria-label="Bigger text" class="a-lg">A</button></div>
+      <div class="pill"><button id="modeBtn" type="button" class="txt" aria-label="Switch scroll mode"><span id="modeLbl">Voice</span></button><button id="safeBtn" type="button" aria-label="Show TikTok safe zones" aria-pressed="false">▢</button></div>
+    </div>
+    <div class="bar main">
+      <button class="side" id="back" type="button" aria-label="Edit script">✎</button>
+      <button class="side" id="play" type="button" aria-label="Start">▶</button>
+      <button class="big" id="rec" type="button" aria-label="Start recording"><i></i></button>
+      <button class="side" id="redo" type="button" aria-label="Back to the start">↺<span id="redoTxt"></span></button>
+      <button class="side" id="swap" type="button" aria-label="Switch camera">⟲</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Result ============ -->
+<div id="result" hidden>
+  <div class="rcard">
+    <video id="playback" controls playsinline></video>
+    <p id="stats"></p>
+    <label class="check"><input type="checkbox" id="burn" checked> Burn captions into the video</label>
+    <div class="prog" id="prog" hidden><i id="progBar"></i></div>
+    <div class="acts">
+      <button id="exportBtn" type="button" class="primary">Make clean video</button>
+      <a id="dlClean" class="primary" href="#" hidden>Save clean video</a>
+    </div>
+    <div class="acts">
+      <a id="dlRaw" class="ghost" href="#">Save raw take</a>
+      <a id="dlSrt" class="ghost" href="#">Captions (.srt)</a>
+    </div>
+    <div class="acts">
+      <button id="againBtn" type="button" class="ghost">Record again</button>
+      <button id="nextScript" type="button" class="ghost" hidden>Next script ›</button>
+    </div>
+    <p class="note">The clean video cuts your redos and dead air, then plays through once to build the file, so keep this screen open. On iPhone, if Save opens the video, tap Share, then Save Video.</p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

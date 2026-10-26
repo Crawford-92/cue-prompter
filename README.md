@@ -1,0 +1,44 @@
+# Cue Prompter
+
+A free teleprompter that runs in your phone's browser. Paste a script, look at the camera, read, record.
+
+## Features
+
+- **Follows your voice.** The script scrolls as you speak and waits when you pause. Timed scroll is there as a backup.
+- **Redo a line.** Fluff a line? Tap **Redo line** while recording. The text jumps back to the start of that sentence, and the mistake is cut from the clean video.
+- **Clean video export.** Cuts your redos, plus dead air at the start and end, into one clean take.
+- **Captions.** Burns TikTok-style captions into the clean video, with the current word highlighted. You can also save them as an `.srt` file.
+- **Hook timer.** The first 3 seconds glow, then it tells you how many words you got through. A live pace readout shows your words per minute against your target.
+- **TikTok safe zones.** An overlay shows where the app's buttons and caption will cover your shot.
+- **Script cues.** `[pause]` and `(smile)` show as yellow cues. `*word*` adds emphasis.
+- **Filming queue.** Separate scripts with a `---` line to film them back to back.
+
+## Controls
+
+| Action | Phone | Keyboard / Bluetooth clicker |
+|---|---|---|
+| Pause or play scroll | Tap the text, or ▶ | Space, Page Down |
+| Record or stop | Red button | R, Enter |
+| Redo line | Redo line (while recording) | Page Up, Backspace |
+| Speed | − / + | ↑ / ↓ |
+| Next or previous script | ‹ › at the top | → / ← |
+
+## Hosting (free)
+
+The camera only works over `https://`. GitHub Pages is free:
+
+1. Push this folder to a GitHub repo.
+2. In the repo, go to **Settings → Pages → Build and deployment**, set **Source: Deploy from a branch**, then pick **main** and **/ (root)**.
+3. Open `https://<you>.github.io/<repo>/` on your phone and add it to your home screen.
+
+## Notes
+
+- Voice follow uses the browser's built-in speech recognition. It works best in Chrome, and also works in Safari on iPhone. If it can't get the mic, the app switches to timed scroll by itself.
+- Building the clean video plays the take through once, so it takes about as long as the clean video runs. Keep the screen open while it runs.
+- Nothing is uploaded anywhere. Recordings stay on your device.
+
+## Code
+
+- `index.html` is the markup.
+- `style.css` is the styling.
+- `app.js` holds the app. The `Core` module at the top contains the pure logic (parsing, voice matching, cuts, captions). You can test it in Node with `require("./app.js")`.
