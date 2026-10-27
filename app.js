@@ -521,7 +521,9 @@ Try it tonight and tell me how you get on.`;
     try {
       const r = await gh("");
       if (r.status === 401) { repoStatus("GitHub didn't accept the key. Make a new one and paste it in again.", true); return; }
-      if (r.status === 404) { repoStatus("Can't find that repo with this key. Check the name and that the key can read it.", true); return; }
+      // GitHub answers 404 for a private repo the key isn't allowed to see
+      if (r.status === 404) { repoStatus(`This key can't see ${repoCfg.repo}. On GitHub, edit the key: under Repository access pick "Only select repositories" and choose this repo, and under Repository permissions set Contents to Read-only. Then tap Check now. If that's all set, check the repo name is spelt right.`, true); return; }
+      if (r.status === 403) { repoStatus(`This key can see ${repoCfg.repo} but can't read its files. On GitHub, edit the key and set Contents to Read-only, then tap Check now.`, true); return; }
       if (!r.ok) { repoStatus("GitHub didn't answer (" + r.status + "). It'll try again next time.", true); return; }
       const entries = Core.repoEntries(await r.json());
       const want = Core.repoWanted(lib, entries);
@@ -552,6 +554,7 @@ Try it tonight and tell me how you get on.`;
   };
   $("repoCheck").onclick = () => { repoStatus("Checking…"); syncRepo(true); };
   $("repoForget").onclick = () => {
+    $("repoIn").value = repoCfg ? repoCfg.repo : "";
     repoCfg = null; try { localStorage.removeItem("cue.repo"); } catch (e) {}
     renderRepo(); toast("Disconnected. Scripts already in your inbox stay.");
   };
