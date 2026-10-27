@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0b0d10">
+<meta name="theme-color" content="#0a0b0d">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -13,67 +13,105 @@
 <title>Cue Prompter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- icons, drawn once and reused with <use> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6Z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+  <symbol id="i-flip" viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14.3-3.3L20 8M20 4v4h-4M20 15a8 8 0 0 1-14.3 3.3L4 16M4 20v-4h4"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M4 5v5h5"/><path d="M4.6 10A8 8 0 1 1 6 16.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z" class="fill"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" class="fill"/><circle cx="12" cy="12" r="1.6" class="fill"/><circle cx="19" cy="12" r="1.6" class="fill"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><path d="M9 4h6v3H9zM9 5.5H6.5v15h11v-15H15"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-safe" viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M5 7h14M15 10v7"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+</svg>
+
 <!-- ============ Inbox ============ -->
 <section id="home" class="page">
-  <header class="brand"><div class="dot"></div><h1>Cue Prompter</h1><span id="inboxCount"></span></header>
+  <header class="top">
+    <h1 class="wordmark"><span class="mark" aria-hidden="true"></span>Cue</h1>
+    <span id="inboxCount"></span>
+    <button id="setBtn" type="button" class="icon-btn" aria-label="Settings and help"><svg><use href="#i-gear"/></svg></button>
+  </header>
 
-  <div class="toolbar">
-    <button id="pasteBtn" type="button" class="primary">Paste script</button>
-    <button id="newBtn" type="button" class="ghost">Write one</button>
-    <button id="sendAll" type="button" class="ghost" hidden>Send new to phone</button>
-  </div>
+  <article id="next" class="next" hidden>
+    <p class="next-k">Up next</p>
+    <h2 id="nextTitle"></h2>
+    <p id="nextPreview"></p>
+    <p id="nextMeta"></p>
+    <button id="nextGo" type="button" class="go">Film this</button>
+    <button id="nextMore" type="button" class="icon-btn next-more" aria-label="Options for this script"><svg><use href="#i-more"/></svg></button>
+  </article>
 
-  <ul id="list" class="list" aria-label="Scripts"></ul>
   <div id="empty" class="empty" hidden>
-    <p><b>No scripts yet.</b></p>
-    <p>Write one in Claude or anywhere else, copy it, then tap <b>Paste script</b>. Scripts sent from your computer show up here too.</p>
+    <p id="emptyT" class="empty-t">Nothing to film yet</p>
+    <p id="emptyP">Scripts your Claude session pushes to the scripts folder land here by themselves. You can also copy a script and paste it in.</p>
   </div>
 
-  <details class="settings">
-    <summary>Prompter settings</summary>
-    <div class="settings-body">
-      <div class="field">
-        <span class="lbl">Scrolling</span>
-        <div class="seg">
-          <button type="button" id="mVoice" aria-pressed="true">Follows my voice</button>
-          <button type="button" id="mTimed" aria-pressed="false">Timed</button>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field"><label class="lbl" for="speed">Target pace</label><input id="speed" type="range" min="40" max="240" step="5" value="130"><output id="speedOut"></output></div>
-        <div class="field"><label class="lbl" for="size">Text size</label><input id="size" type="range" min="20" max="60" step="2" value="30"><output id="sizeOut"></output></div>
-      </div>
-      <div class="toggles">
-        <button class="chip" id="tMirror" type="button" aria-pressed="true">Mirror preview</button>
-        <button class="chip" id="tFront" type="button" aria-pressed="true">Front camera</button>
-        <button class="chip" id="tSafe" type="button" aria-pressed="false">TikTok safe zones</button>
-        <button class="chip" id="tFlip" type="button" aria-pressed="false">Flip text for a mirror rig</button>
-      </div>
-    </div>
-  </details>
+  <h3 id="todoHead" class="sec" hidden>To film</h3>
+  <ul id="list" class="list" aria-label="Scripts to film"></ul>
+  <h3 id="doneHead" class="sec" hidden>Filmed</h3>
+  <ul id="doneList" class="list" aria-label="Filmed scripts"></ul>
 
-  <details class="settings">
-    <summary>How it works</summary>
-    <div class="settings-body help">
-      <p><b>Script on your computer, camera on your phone.</b> Open this page on the computer, paste the script, tap <b>⋯</b> then <b>Send to phone</b>, and scan the code with your phone's camera.</p>
-      <p><b>Script cues.</b> <code>[pause]</code> and <code>(smile)</code> show as cues, not words to read. <code>*word*</code> adds emphasis. A line of <code>---</code> splits one paste into several scripts.</p>
-      <p><b>Getting the video back.</b> After a take, tap <b>Share</b> to send it by AirDrop, Google Drive, iCloud or WhatsApp, or straight into CapCut. On a computer it saves to Downloads.</p>
-      <p><b>Recording on a computer.</b> This page works with a laptop webcam too. Space pauses, R records, Page Up redoes a line.</p>
-      <p id="installNote"><b>Make it an app.</b> On iPhone, tap Share, then Add to Home Screen. In Chrome, tap the menu, then Install app.</p>
-    </div>
-  </details>
+  <div class="add">
+    <button id="pasteBtn" type="button" class="ghost"><svg><use href="#i-paste"/></svg>Paste script</button>
+    <button id="newBtn" type="button" class="ghost"><svg><use href="#i-pen"/></svg>Write one</button>
+  </div>
+  <button id="sendAll" type="button" class="ghost desk-only" hidden>Send new to phone</button>
 </section>
+
+<!-- settings and help -->
+<div id="settings" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="setTitle">
+    <div class="sheet-head"><h2 id="setTitle">Settings</h2><button id="setDone" type="button" class="link">Done</button></div>
+
+    <div class="group">
+      <p class="group-t">Scrolling</p>
+      <div class="seg">
+        <button type="button" id="mVoice" aria-pressed="true">Follows my voice</button>
+        <button type="button" id="mTimed" aria-pressed="false">Timed</button>
+      </div>
+      <label class="slider"><span>Target pace</span><output id="speedOut"></output><input id="speed" type="range" min="40" max="240" step="5" value="130"></label>
+      <label class="slider"><span>Text size</span><output id="sizeOut"></output><input id="size" type="range" min="20" max="60" step="2" value="30"></label>
+    </div>
+
+    <div class="group rows">
+      <button class="switch" id="tFront" type="button" aria-pressed="true"><span>Front camera</span><i></i></button>
+      <button class="switch" id="tMirror" type="button" aria-pressed="true"><span>Mirror the preview</span><i></i></button>
+      <button class="switch" id="tSafe" type="button" aria-pressed="false"><span>Show TikTok safe zones</span><i></i></button>
+      <button class="switch" id="tFlip" type="button" aria-pressed="false"><span>Flip text for a mirror rig</span><i></i></button>
+    </div>
+
+    <div class="group help">
+      <p class="group-t">How it works</p>
+      <p><b>Film.</b> Tap <b>Film this</b>. The script scrolls under the camera as you speak. Tap the text to rehearse first.</p>
+      <p><b>Fluffed a line?</b> Tap <b>Redo line</b> and say the sentence again. The mistake is cut from the clean video.</p>
+      <p><b>Finish.</b> Make the clean video, then share it to CapCut, TikTok, AirDrop or Photos.</p>
+      <p><b>Script cues.</b> <code>[pause]</code> and <code>(smile)</code> show as cues, not words to read. <code>*word*</code> adds emphasis. A line of <code>---</code> splits one paste into several scripts.</p>
+      <p id="installNote"><b>Make it an app.</b> In Safari, tap Share, then Add to Home Screen.</p>
+    </div>
+  </div>
+</div>
 
 <!-- ============ Editor ============ -->
 <section id="editor" class="page" hidden>
-  <header class="brand"><button id="edCancel" type="button" class="link">‹ Inbox</button><h1 id="edTitle">New script</h1><span id="edMeta"></span></header>
-  <label class="lbl" for="edText">Script</label>
-  <textarea id="edText" spellcheck="true" placeholder="Paste or write your script…"></textarea>
+  <header class="top">
+    <button id="edCancel" type="button" class="link back"><svg><use href="#i-left"/></svg>Inbox</button>
+    <span id="edMeta"></span>
+  </header>
+  <h2 id="edTitle" class="page-t">New script</h2>
+  <textarea id="edText" spellcheck="true" placeholder="Paste or write your script…" aria-labelledby="edTitle"></textarea>
   <p class="note"><code>[pause]</code> <code>(smile)</code> show as cues. <code>*word*</code> adds emphasis. A line of <code>---</code> splits it into several scripts.</p>
   <button id="edSave" type="button" class="go">Add to inbox</button>
 </section>
@@ -82,10 +120,12 @@
 <div id="sheet" class="overlay" hidden>
   <div class="sheet" role="dialog" aria-labelledby="sheetTitle">
     <p id="sheetTitle" class="sheet-title"></p>
-    <button id="shSend" type="button">Send to phone</button>
-    <button id="shEdit" type="button">Edit</button>
-    <button id="shMark" type="button">Mark as recorded</button>
-    <button id="shDelete" type="button" class="danger">Remove</button>
+    <div class="menu">
+      <button id="shEdit" type="button">Edit</button>
+      <button id="shMark" type="button">Mark as filmed</button>
+      <button id="shSend" type="button" class="desk-only">Send to phone</button>
+      <button id="shDelete" type="button" class="danger">Remove</button>
+    </div>
     <button id="shCancel" type="button" class="cancel">Cancel</button>
   </div>
 </div>
@@ -93,7 +133,7 @@
 <!-- send to phone -->
 <div id="send" class="overlay" hidden>
   <div class="sheet send" role="dialog" aria-labelledby="sendTitle">
-    <p class="lbl">Send to phone</p>
+    <div class="sheet-head"><h2>Send to phone</h2><button id="sendClose" type="button" class="link">Done</button></div>
     <p id="sendTitle" class="sheet-title"></p>
     <div id="qrBox" class="qr"></div>
     <p id="qrNote" class="note"></p>
@@ -102,7 +142,6 @@
       <button id="copyLink" type="button" class="ghost">Copy link</button>
       <button id="shareLink" type="button" class="ghost">Share link</button>
     </div>
-    <button id="sendClose" type="button" class="cancel">Done</button>
   </div>
 </div>
 
@@ -123,13 +162,13 @@
   <div id="guide" aria-hidden="true"></div>
 
   <div id="topbar">
-    <div id="queue" hidden>
-      <button id="qPrev" type="button" aria-label="Previous script">‹</button>
+    <button id="back" type="button" class="glass round" aria-label="Close and go back to the inbox"><svg><use href="#i-close"/></svg></button>
+    <div id="queue" class="glass" hidden>
+      <button id="qPrev" type="button" aria-label="Previous script"><svg><use href="#i-left"/></svg></button>
       <span id="qLbl"></span>
-      <button id="qNext" type="button" aria-label="Next script">›</button>
+      <button id="qNext" type="button" aria-label="Next script"><svg><use href="#i-right"/></svg></button>
     </div>
-    <div id="listenDot" hidden title="Listening">Listening</div>
-    <div id="timer" hidden><b id="tTime">0:00</b><span id="tPace"></span></div>
+    <div id="timer" class="glass" hidden><b id="tTime">0:00</b><span id="tPace"></span></div>
   </div>
 
   <div id="count" hidden></div>
@@ -137,17 +176,31 @@
   <div id="err" hidden></div>
 
   <div id="hud">
-    <div class="bar">
-      <div class="pill"><button id="sDown" type="button" aria-label="Slower">−</button><b><span id="sLbl">130</span><small>wpm</small></b><button id="sUp" type="button" aria-label="Faster">+</button></div>
-      <div class="pill"><button id="fDown" type="button" aria-label="Smaller text" class="a-sm">A</button><b><span id="fLbl">30</span><small>px</small></b><button id="fUp" type="button" aria-label="Bigger text" class="a-lg">A</button></div>
-      <div class="pill"><button id="modeBtn" type="button" class="txt" aria-label="Switch scroll mode"><span id="modeLbl">Voice</span></button><button id="safeBtn" type="button" aria-label="Show TikTok safe zones" aria-pressed="false">▢</button></div>
+    <p id="hint"><span id="listenDot" hidden>Listening</span><span id="hintTxt">Tap the script to rehearse</span></p>
+
+    <div id="adj" class="glass" hidden>
+      <div class="adj-row">
+        <span class="adj-l">Pace</span>
+        <div class="step"><button id="sDown" type="button" aria-label="Slower">−</button><b><span id="sLbl">130</span> wpm</b><button id="sUp" type="button" aria-label="Faster">+</button></div>
+      </div>
+      <div class="adj-row">
+        <span class="adj-l">Text</span>
+        <div class="step"><button id="fDown" type="button" aria-label="Smaller text" class="a-sm">A</button><b><span id="fLbl">30</span> px</b><button id="fUp" type="button" aria-label="Bigger text" class="a-lg">A</button></div>
+      </div>
+      <div class="adj-chips">
+        <button id="modeBtn" type="button" class="chip" aria-label="Switch between voice follow and timed scroll"><svg><use href="#i-mic"/></svg><span id="modeLbl">Voice</span></button>
+        <button id="safeBtn" type="button" class="chip" aria-pressed="false"><svg><use href="#i-safe"/></svg>Safe zones</button>
+        <button id="play" type="button" class="chip" aria-label="Rehearse"><svg><use href="#i-play"/></svg><span>Rehearse</span></button>
+      </div>
     </div>
-    <div class="bar main">
-      <button class="side" id="back" type="button" aria-label="Back to inbox">☰</button>
-      <button class="side" id="play" type="button" aria-label="Start">▶</button>
-      <button class="big" id="rec" type="button" aria-label="Start recording"><i></i></button>
-      <button class="side" id="redo" type="button" aria-label="Back to the start">↺<span id="redoTxt"></span></button>
-      <button class="side" id="swap" type="button" aria-label="Switch camera">⟲</button>
+
+    <div class="bar">
+      <button id="adjBtn" type="button" class="glass round side" aria-label="Pace, text size and scrolling" aria-expanded="false"><svg><use href="#i-sliders"/></svg></button>
+      <button id="rec" type="button" class="big" aria-label="Start recording"><i></i></button>
+      <div class="slot">
+        <button id="swap" type="button" class="glass round side" aria-label="Switch camera"><svg><use href="#i-flip"/></svg></button>
+        <button id="redo" type="button" class="redo" aria-label="Redo this line"><svg><use href="#i-redo"/></svg><span id="redoTxt">Redo line</span></button>
+      </div>
     </div>
   </div>
 </section>
@@ -155,25 +208,19 @@
 <!-- ============ Result ============ -->
 <div id="result" hidden>
   <div class="rcard">
+    <header class="rhead"><h2>Nice take</h2><p id="stats"></p></header>
     <video id="playback" controls playsinline></video>
-    <p id="stats"></p>
-    <label class="check"><input type="checkbox" id="burn" checked> Burn captions into the video</label>
-    <div class="prog" id="prog" hidden><i id="progBar"></i></div>
-    <div class="acts">
-      <button id="exportBtn" type="button" class="primary">Make clean video</button>
-      <a id="dlClean" class="primary" href="#" hidden>Save clean video</a>
-    </div>
-    <div class="acts">
-      <button id="shareVid" type="button" class="ghost">Share raw take</button>
-      <button id="shareSrt" type="button" class="ghost">Share captions</button>
-    </div>
+    <button class="switch" id="burnRow" type="button" aria-pressed="true"><span>Burn in captions</span><i></i></button>    <div class="prog" id="prog" hidden><i id="progBar"></i></div>
+    <button id="exportBtn" type="button" class="go">Make clean video</button>
+    <button id="shareVid" type="button" class="ghost">Share raw take</button>
+    <p class="note" id="exportNote">The clean video cuts your redos and dead air. It plays the take through once to build it, so keep this screen open.</p>
     <div class="acts">
       <button id="againBtn" type="button" class="ghost">Record again</button>
-      <button id="nextScript" type="button" class="ghost" hidden>Next script ›</button>
+      <button id="nextScript" type="button" class="ghost" hidden>Next</button>
+      <button id="toInbox" type="button" class="ghost">Done</button>
     </div>
-    <button id="toInbox" type="button" class="link">‹ Back to inbox</button>
-    <a id="dlRaw" href="#" hidden></a><a id="dlSrt" href="#" hidden></a>
-    <p class="note">The clean video cuts your redos and dead air, then plays through once to build the file, so keep this screen open. Share sends the video to AirDrop, Drive, iCloud or CapCut. On a computer it saves to Downloads.</p>
+    <button id="shareSrt" type="button" class="link">Save captions as a file (.srt)</button>
+    <a id="dlClean" href="#" hidden></a><a id="dlRaw" href="#" hidden></a><a id="dlSrt" href="#" hidden></a>
   </div>
 </div>
 

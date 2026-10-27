@@ -217,7 +217,7 @@ Try it tonight and tell me how you get on.`;
     mode: "voice", speed: 130, size: 30, mirror: true, front: true, flip: false, safe: false, burn: true
   }, store.get("cue.settings", {}), {
     scripts: [], qi: 0, doc: null, words: [], spans: [], ptr: 0, ptrF: 0, offset: 0, dragging: false,
-    playing: false, listening: false, sr: null, srGen: 0, resKey: null, resBase: 0, holdUntil: 0,
+    playing: false, listening: false, sr: null, srGen: 0, resKey: null, resBase: 0, skip: 0, lastLen: 0, holdUntil: 0,
     stream: null, mr: null, chunks: [], recording: false, recStart: 0, recDur: 0, at: [], lastT: 0, cuts: [], redos: 0,
     timerId: 0, autoStop: 0, hookTimer: 0, wake: null, raw: null, edit: null, capChunks: [], clean: null, exporting: false
   });
@@ -247,16 +247,21 @@ Try it tonight and tell me how you get on.`;
     [["tMirror", "mirror"], ["tFront", "front"], ["tFlip", "flip"], ["tSafe", "safe"]].forEach(([id, k]) => $(id).setAttribute("aria-pressed", S[k]));
     $("modeLbl").textContent = S.mode === "voice" ? "Voice" : "Timed";
     $("safe").hidden = !S.safe; $("safeBtn").setAttribute("aria-pressed", S.safe);
-    $("burn").checked = S.burn;
+    $("burnRow").setAttribute("aria-pressed", S.burn);
   }
   $("speed").addEventListener("input", e => { S.speed = +e.target.value; saveSettings(); updLabels(); });
   $("size").addEventListener("input", e => { S.size = +e.target.value; saveSettings(); setFs(); updLabels(); });
-  $("mVoice").onclick = () => { S.mode = "voice"; saveSettings(); syncChips(); };
-  $("mTimed").onclick = () => { S.mode = "timed"; saveSettings(); syncChips(); };
+  $("mVoice").onclick = () => { if (S.mode !== "voice") setMode("voice"); };
+  $("mTimed").onclick = () => { if (S.mode !== "timed") setMode("timed"); };
   [["tMirror", "mirror"], ["tFront", "front"], ["tFlip", "flip"], ["tSafe", "safe"]].forEach(([id, k]) => {
     $(id).onclick = () => { S[k] = !S[k]; saveSettings(); syncChips(); };
   });
-  $("burn").onchange = e => { S.burn = e.target.checked; saveSettings(); resetClean(); };
+  $("burnRow").onclick = () => { S.burn = !S.burn; saveSettings(); syncChips(); resetClean(); };
+
+  /* settings sheet */
+  $("setBtn").onclick = () => { $("settings").hidden = false; };
+  $("setDone").onclick = () => { $("settings").hidden = true; };
+  $("settings").addEventListener("click", e => { if (e.target === $("settings")) $("settings").hidden = true; });
   syncChips(); updLabels();
 
   /* ---------- script inbox ---------- */
@@ -293,33 +298,65 @@ Try it tonight and tell me how you get on.`;
     return d.toLocaleDateString([], { day: "numeric", month: "short" });
   };
 
+  // scripts still to film come first (newest first), then the filmed ones
+  const queueOrder = () => { const all = inbox(); return all.filter(s => s.status !== "recorded").concat(all.filter(s => s.status === "recorded")); };
+  const plain = text => text.replace(/\[[^\]]*\]|\([^)]*\)|\*/g, "").replace(/[ \t]+/g, " ").trim();
+  const STATE = { new: "new", opened: "opened, not filmed", recorded: "filmed" };
+
+  function itemRow(s) {
+    const words = Core.parse(s.text).words.length;
+    const li = document.createElement("li");
+    li.className = "item " + s.status;
+    const open = document.createElement("button");
+    open.type = "button"; open.className = "open";
+    open.innerHTML = '<span class="dot" aria-hidden="true"></span><svg class="tick" aria-hidden="true"><use href="#i-check"/></svg><span class="body"><span class="t"></span><span class="sub"></span></span>';
+    open.querySelector(".t").textContent = Core.titleOf(s.text);
+    const when = s.status === "recorded" ? "filmed " + shortDate(s.recordedAt) : "added " + shortDate(s.created);
+    open.querySelector(".sub").textContent = `~${fmt(words / S.speed * 60)} · ${when}`;
+    open.setAttribute("aria-label", `${Core.titleOf(s.text)}, ${STATE[s.status]}. Open in prompter`);
+    open.onclick = () => openScript(s.id);
+    const more = document.createElement("button");
+    more.type = "button"; more.className = "more";
+    more.innerHTML = '<svg aria-hidden="true"><use href="#i-more"/></svg>';
+    more.setAttribute("aria-label", "Options for " + Core.titleOf(s.text));
+    more.onclick = () => openSheet(s.id);
+    li.append(open, more);
+    return li;
+  }
+
   function renderHome() {
-    const items = inbox(), list = $("list");
-    list.textContent = "";
-    $("empty").hidden = items.length > 0;
-    const nNew = items.filter(s => s.status === "new").length;
-    $("inboxCount").textContent = items.length ? (nNew ? `${nNew} new · ` : "") + `${items.length} script${items.length > 1 ? "s" : ""}` : "";
+    const all = inbox();
+    const todo = all.filter(s => s.status !== "recorded"), done = all.filter(s => s.status === "recorded");
+    const hero = todo[0];
+    $("home").classList.toggle("empty-inbox", !hero);
+
+    $("next").hidden = !hero; $("empty").hidden = !!hero;
+    if (hero) {
+      const words = Core.parse(hero.text).words.length;
+      const lines = hero.text.split("\n").filter(l => l.trim());
+      $("nextTitle").textContent = plain(lines[0] || "") || "Untitled";
+      $("nextPreview").textContent = plain(lines.length > 1 ? lines.slice(1).join(" ") : lines.join(" "));
+      $("nextMeta").textContent = `${words} words · about ${fmt(words / S.speed * 60)}` +
+        (todo.length > 1 ? ` · then ${todo.length - 1} more` : "");
+      $("nextGo").onclick = () => openScript(hero.id);
+      $("nextMore").onclick = () => openSheet(hero.id);
+    } else if (done.length) {
+      $("emptyT").textContent = "All filmed";
+      $("emptyP").textContent = "Every script here is done. New ones from your Claude session land here by themselves, or paste one in.";
+    } else {
+      $("emptyT").textContent = "Nothing to film yet";
+      $("emptyP").textContent = "Scripts your Claude session pushes to the scripts folder land here by themselves. You can also copy a script and paste it in.";
+    }
+
+    const rest = todo.slice(1);
+    $("todoHead").hidden = !rest.length; $("doneHead").hidden = !done.length;
+    $("list").replaceChildren(...rest.map(itemRow));
+    $("doneList").replaceChildren(...done.map(itemRow));
+    $("inboxCount").textContent = todo.length ? `${todo.length} to film` : "";
+
+    const nNew = all.filter(s => s.status === "new").length;
     $("sendAll").hidden = !nNew;
     $("sendAll").textContent = nNew > 1 ? `Send ${nNew} new to phone` : "Send new to phone";
-    items.forEach(s => {
-      const words = Core.parse(s.text).words.length;
-      const li = document.createElement("li");
-      li.className = "item " + s.status;
-      const open = document.createElement("button");
-      open.type = "button"; open.className = "open";
-      open.innerHTML = '<span class="dot" aria-hidden="true"></span><span class="body"><span class="t"></span><span class="sub"></span></span><span class="state"></span>';
-      open.querySelector(".t").textContent = Core.titleOf(s.text);
-      const when = s.status === "recorded" ? "recorded " + shortDate(s.recordedAt) : "added " + shortDate(s.created);
-      open.querySelector(".sub").textContent = `${words} words · ~${fmt(words / S.speed * 60)} · ${when}`;
-      open.querySelector(".state").textContent = s.status === "recorded" ? "✓ Done" : s.status === "opened" ? "Opened" : "New";
-      open.setAttribute("aria-label", `${Core.titleOf(s.text)}, ${s.status}. Open in prompter`);
-      open.onclick = () => openScript(s.id);
-      const more = document.createElement("button");
-      more.type = "button"; more.className = "more"; more.textContent = "⋯";
-      more.setAttribute("aria-label", "Options for " + Core.titleOf(s.text));
-      more.onclick = () => openSheet(s.id);
-      li.append(open, more); list.appendChild(li);
-    });
   }
 
   /* per-script options */
@@ -328,7 +365,7 @@ Try it tonight and tell me how you get on.`;
     const s = byId(id); if (!s) return;
     sheetId = id;
     $("sheetTitle").textContent = Core.titleOf(s.text);
-    $("shMark").textContent = s.status === "recorded" ? "Mark as not recorded" : "Mark as recorded";
+    $("shMark").textContent = s.status === "recorded" ? "Mark as not filmed" : "Mark as filmed";
     $("sheet").hidden = false;
   }
   const closeSheet = () => { $("sheet").hidden = true; sheetId = null; };
@@ -550,12 +587,27 @@ Try it tonight and tell me how you get on.`;
   }
   requestAnimationFrame(tick);
 
+  // Voice recognition keeps running the whole time the prompter is open (see startListening);
+  // pausing only stops the text following it. Starting and stopping it makes the phone chime.
   function setPlaying(v) {
     S.playing = v;
-    $("play").textContent = v ? "❚❚" : "▶";
-    $("play").setAttribute("aria-label", v ? "Pause" : (S.mode === "voice" ? "Start listening" : "Start scrolling"));
-    if (S.mode === "voice") { v ? startListening() : stopListening(); }
-    $("listenDot").hidden = !(v && S.mode === "voice");
+    if (v) rebase();
+    if (v && S.mode === "voice" && !S.listening && !$("stage").hidden) startListening();
+    document.body.classList.toggle("playing", v);
+    $("play").querySelector("use").setAttribute("href", v ? "#i-pause" : "#i-play");
+    $("play").querySelector("span").textContent = v ? "Pause" : "Rehearse";
+    $("play").setAttribute("aria-label", v ? "Pause" : "Rehearse");
+    $("listenDot").hidden = !(v && S.mode === "voice" && S.listening);
+    $("hintTxt").textContent = v ? "Tap the script to pause" : (S.mode === "voice" ? "Tap the script to rehearse" : "Tap the script to start scrolling");
+  }
+  function setMode(m) {
+    const was = S.playing; setPlaying(false);
+    S.mode = m; S.ptrF = S.ptr; saveSettings(); syncChips();
+    if (!$("stage").hidden) {
+      if (m === "voice") startListening(); else stopListening();
+      toast(m === "voice" ? "Follows your voice" : "Timed scroll at " + S.speed + " wpm");
+    }
+    if (was) setPlaying(true); else setPlaying(false);
   }
   $("play").onclick = () => setPlaying(!S.playing);
 
@@ -576,7 +628,7 @@ Try it tonight and tell me how you get on.`;
     S.spans.forEach((s, k) => { const d = Math.abs(s.offsetTop - S.offset); if (d < bd) { bd = d; best = k; } });
     setPtr(best, false); S.ptrF = best;
     if (S.recording) { S.lastT = recTime(); S.at.fill(null, best); }
-    S.resKey = null;
+    rebase();
   };
   $("band").addEventListener("pointerup", endDrag);
   $("band").addEventListener("pointercancel", endDrag);
@@ -588,21 +640,19 @@ Try it tonight and tell me how you get on.`;
   $("sUp").onclick = () => bump("speed", 10, 40, 240); $("sDown").onclick = () => bump("speed", -10, 40, 240);
   $("fUp").onclick = () => bump("size", 2, 20, 60); $("fDown").onclick = () => bump("size", -2, 20, 60);
   $("safeBtn").onclick = () => { S.safe = !S.safe; saveSettings(); syncChips(); };
-  $("modeBtn").onclick = () => {
-    if (S.recording) return;
-    const was = S.playing; setPlaying(false);
-    S.mode = S.mode === "voice" ? "timed" : "voice"; S.ptrF = S.ptr; saveSettings(); syncChips();
-    toast(S.mode === "voice" ? "Follows your voice" : "Timed scroll at " + S.speed + " wpm");
-    if (was) setPlaying(true);
+  $("modeBtn").onclick = () => { if (!S.recording) setMode(S.mode === "voice" ? "timed" : "voice"); };
+  $("adjBtn").onclick = () => {
+    const open = $("adj").hidden; $("adj").hidden = !open;
+    $("adjBtn").setAttribute("aria-expanded", open);
   };
+  const closeAdj = () => { $("adj").hidden = true; $("adjBtn").setAttribute("aria-expanded", "false"); };
 
   /* ---------- voice follow ---------- */
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   function fallbackTimed(msg) {
     S.listening = false; S.srGen++;
     S.mode = "timed"; S.ptrF = S.ptr; syncChips(); toast(msg, 4500);
-    if (S.recording) { S.playing = true; $("play").textContent = "❚❚"; }
-    $("listenDot").hidden = true;
+    setPlaying(S.recording || S.playing);
   }
   function startListening() {
     if (!SR) { fallbackTimed("Voice follow isn't available in this browser, so it's on timed scroll. Chrome or Safari work best."); return; }
@@ -614,12 +664,14 @@ Try it tonight and tell me how you get on.`;
     const r = new SR(), gen = ++S.srGen; S.sr = r; S.resKey = null;
     r.lang = navigator.language || "en-GB"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
     r.onresult = e => {
-      if (gen !== S.srGen || performance.now() < S.holdUntil) return;
+      if (gen !== S.srGen) return;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const key = gen + ":" + i;
-        if (S.resKey !== key) { S.resKey = key; S.resBase = S.ptr; }
         const spoken = e.results[i][0].transcript.split(/\s+/).map(Core.norm).filter(Boolean);
-        const p = Core.advance(S.words, S.resBase, spoken);
+        if (S.resKey !== key) { S.resKey = key; S.resBase = S.ptr; S.skip = 0; }
+        S.lastLen = spoken.length;
+        if (!S.playing || performance.now() < S.holdUntil) continue;
+        const p = Core.advance(S.words, S.resBase, spoken.slice(S.skip));
         if (p > S.ptr) setPtr(p);
       }
     };
@@ -636,11 +688,9 @@ Try it tonight and tell me how you get on.`;
     try { S.sr && S.sr.abort(); } catch (e) {}
     S.sr = null;
   }
-  function restartListening() {
-    if (!S.listening) return;
-    S.srGen++; try { S.sr && S.sr.abort(); } catch (e) {}
-    setTimeout(spawn, 150);
-  }
+  // Follow from the current word: ignore what's already been heard in the current result
+  // (instead of restarting recognition, which chimes).
+  function rebase() { S.resBase = S.ptr; S.skip = S.lastLen; }
 
   /* ---------- camera ---------- */
   async function openCam() {
@@ -669,16 +719,17 @@ Try it tonight and tell me how you get on.`;
   document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("stage").hidden) wake(); });
 
   async function openScript(id) {
-    S.scripts = inbox();
+    S.scripts = queueOrder();
     const i = Math.max(0, S.scripts.findIndex(x => x.id === id));
-    $("home").hidden = true; $("stage").hidden = false;
-    loadScript(i); requestAnimationFrame(place);
+    $("home").hidden = true; $("stage").hidden = false; closeAdj();
+    loadScript(i); setPlaying(false); requestAnimationFrame(place);
     await openCam(); wake();
-    if (S.mode === "voice" && !SR) fallbackTimed("Voice follow isn't available in this browser, so it's on timed scroll.");
+    // start listening once, now, so recording and redos don't make the phone chime
+    if (S.mode === "voice" && S.stream) startListening();
   }
   function backToSetup() {
     if (S.recording) return;
-    setPlaying(false);
+    setPlaying(false); stopListening();
     if (S.stream) S.stream.getTracks().forEach(t => t.stop()); S.stream = null;
     try { S.wake && S.wake.release(); } catch (e) {}
     $("stage").hidden = true; $("home").hidden = false; renderHome();
@@ -707,7 +758,7 @@ Try it tonight and tell me how you get on.`;
     if (!S.stream) { showErr("The camera isn't running yet."); return; }
     const type = pickType();
     if (type === null) { showErr("This browser can't record video. The prompter still works, so you can film with another app."); return; }
-    setPlaying(false); setPtr(0, false); S.ptrF = 0; S.offset = 0;
+    setPlaying(false); setPtr(0, false); S.ptrF = 0; S.offset = 0; closeAdj();
     $("rec").disabled = true;
     await countdown(3);
     $("rec").disabled = false;
@@ -720,7 +771,6 @@ Try it tonight and tell me how you get on.`;
     S.mr.start(1000);
     S.recording = true; document.body.classList.add("recording");
     $("rec").classList.add("on"); $("rec").setAttribute("aria-label", "Stop recording");
-    $("redo").setAttribute("aria-label", "Redo this line"); $("redoTxt").textContent = "Redo line";
     $("timer").hidden = false; updTimer(); S.timerId = setInterval(updTimer, 250);
     // hook timer: first 3 seconds
     $("band").classList.add("hook");
@@ -748,7 +798,7 @@ Try it tonight and tell me how you get on.`;
   }
 
   function redo() {
-    if (!S.recording) { setPtr(0, false); S.ptrF = 0; S.resKey = null; return; }
+    if (!S.recording) { setPtr(0, false); S.ptrF = 0; rebase(); return; }
     const N = S.words.length; if (!N) return;
     const t = recTime();
     const sid = S.words[Math.min(S.ptr, N - 1)].sid;
@@ -765,7 +815,7 @@ Try it tonight and tell me how you get on.`;
     $("again").hidden = false; $("againTxt").textContent = "From “" + preview + (N - start > 5 ? "…" : "") + "”";
     $("againBar").classList.remove("run"); void $("againBar").offsetWidth; $("againBar").classList.add("run");
     setTimeout(() => { $("again").hidden = true; }, HOLD * 1000);
-    if (S.mode === "voice") restartListening();
+    rebase();
   }
   $("redo").onclick = redo;
   $("rec").onclick = () => { S.recording ? stopRec() : startRec(); };
@@ -777,7 +827,6 @@ Try it tonight and tell me how you get on.`;
     setPlaying(false);
     $("timer").hidden = true; $("again").hidden = true; S.holdUntil = 0;
     $("rec").classList.remove("on"); $("rec").setAttribute("aria-label", "Start recording");
-    $("redo").setAttribute("aria-label", "Back to the start"); $("redoTxt").textContent = "";
     const mt = (S.mr.mimeType || "video/webm").split(";")[0];
     const blob = new Blob(S.chunks, { type: mt });
     if (S.raw) URL.revokeObjectURL(S.raw.url);
@@ -792,8 +841,8 @@ Try it tonight and tell me how you get on.`;
   const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
   function resetClean() {
     if (S.clean) { URL.revokeObjectURL(S.clean.url); S.clean = null; }
-    $("dlClean").hidden = true; $("exportBtn").hidden = false;
-    $("shareVid").textContent = "Share raw take";
+    $("exportBtn").hidden = false; $("exportNote").hidden = false;
+    $("shareVid").textContent = "Share raw take"; $("shareVid").className = "ghost";
     if (S.raw && !$("result").hidden) $("playback").src = S.raw.url;
   }
   function showResult() {
@@ -813,7 +862,7 @@ Try it tonight and tell me how you get on.`;
       `Take ${fmt(e.dur)}` +
       (S.redos ? ` · ${S.redos} redo${S.redos > 1 ? "s" : ""}` : "") +
       (saved > 0.5 ? ` · clean cut ${fmt(e.cleanDur)}` : "") +
-      (S.capChunks.length ? ` · ${S.capChunks.length} caption lines` : "");
+      (S.capChunks.length ? ` · ${S.capChunks.length} caption line${S.capChunks.length > 1 ? "s" : ""}` : "");
     $("nextScript").hidden = S.qi >= S.scripts.length - 1;
     $("prog").hidden = true; $("exportBtn").disabled = false; $("exportBtn").textContent = "Make clean video";
     $("result").hidden = false;
@@ -847,7 +896,7 @@ Try it tonight and tell me how you get on.`;
     if (S.exporting || !S.raw) return;
     S.exporting = true;
     const btn = $("exportBtn"); btn.disabled = true; btn.textContent = "Making clean video…";
-    $("prog").hidden = false; $("progBar").style.width = "0%";
+    $("prog").hidden = false; $("progBar").style.transform = "scaleX(0)";
     $("playback").pause();
     let ac;
     try {
@@ -888,7 +937,7 @@ Try it tonight and tell me how you get on.`;
           if (mr.state === "paused") mr.resume();
           else if (!started) { mr.start(500); started = true; }
         }
-        $("progBar").style.width = Math.min(100, t / dur * 100).toFixed(1) + "%";
+        $("progBar").style.transform = `scaleX(${Math.min(1, t / dur).toFixed(3)})`;
         requestAnimationFrame(loop);
       };
       await v.play();
@@ -900,9 +949,9 @@ Try it tonight and tell me how you get on.`;
       S.clean = { url: URL.createObjectURL(blob), blob, ext: mt.includes("mp4") ? "mp4" : "webm" };
       $("playback").src = S.clean.url;
       $("dlClean").href = S.clean.url; $("dlClean").download = S.baseName + "-clean." + (mt.includes("mp4") ? "mp4" : "webm");
-      $("dlClean").hidden = false; btn.hidden = true;
-      $("shareVid").textContent = "Share clean video";
-      $("progBar").style.width = "100%";
+      btn.hidden = true; $("exportNote").hidden = true;
+      $("shareVid").textContent = "Share clean video"; $("shareVid").className = "go";
+      $("progBar").style.transform = "scaleX(1)";
       setTimeout(() => { $("prog").hidden = true; }, 600);
     } catch (e) {
       btn.disabled = false; btn.textContent = "Try again";

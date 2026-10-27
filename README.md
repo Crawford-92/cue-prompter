@@ -45,10 +45,10 @@ Opening the link adds the script to the inbox on that device. Separate several s
 
 | Action | Phone | Keyboard / Bluetooth clicker |
 |---|---|---|
-| Pause or play scroll | Tap the text, or ▶ | Space, Page Down |
+| Pause or play scroll | Tap the text | Space, Page Down |
 | Record or stop | Red button | R, Enter |
 | Redo line | Redo line (while recording) | Page Up, Backspace |
-| Speed | − / + | ↑ / ↓ |
+| Speed, text size, voice or timed | Adjust button, bottom left | ↑ / ↓ for speed |
 | Next or previous script | ‹ › at the top | → / ← |
 
 ## Hosting (free)
