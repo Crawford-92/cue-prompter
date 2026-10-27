@@ -56,7 +56,7 @@
 
   <div id="empty" class="empty" hidden>
     <p id="emptyT" class="empty-t">Nothing to film yet</p>
-    <p id="emptyP">Scripts your Claude session pushes to the scripts folder land here by themselves. You can also copy a script and paste it in.</p>
+    <p id="emptyP">Write a script with Claude and tap the link it gives you, or copy a script and paste it in.</p>
   </div>
 
   <h3 id="todoHead" class="sec" hidden>To film</h3>
@@ -76,6 +76,13 @@
   <div class="sheet" role="dialog" aria-labelledby="setTitle">
     <div class="sheet-head"><h2 id="setTitle">Settings</h2><button id="setDone" type="button" class="link">Done</button></div>
 
+    <div class="group help">
+      <p class="group-t">Use with Claude</p>
+      <p>Add the Cue Prompter skill to your Claude once. After that, every finished script ends with a link. Tap it on your phone and the script lands here. On a computer, the link shows a code to scan with your phone.</p>
+      <a class="ghost dl" href="cue-prompter-skill.zip" download>Download the Claude skill</a>
+      <p>In Claude, open <b>Settings</b>, find <b>Skills</b>, and upload the file. Your scripts stay private: they travel inside the link and are only saved on your phone.</p>
+    </div>
+
     <div class="group">
       <p class="group-t">Scrolling</p>
       <div class="seg">
@@ -91,6 +98,21 @@
       <button class="switch" id="tMirror" type="button" aria-pressed="true"><span>Mirror the preview</span><i></i></button>
       <button class="switch" id="tSafe" type="button" aria-pressed="false"><span>Show TikTok safe zones</span><i></i></button>
       <button class="switch" id="tFlip" type="button" aria-pressed="false"><span>Flip text for a mirror rig</span><i></i></button>
+    </div>
+
+    <div class="group repo">
+      <p class="group-t">Your own scripts repo</p>
+      <div id="repoOff">
+        <p class="small">Optional. If Claude Code pushes your scripts to a private GitHub repo, connect it here and new scripts turn up by themselves. The key is saved on this phone only.</p>
+        <input id="repoIn" type="text" placeholder="owner/repo" autocapitalize="off" autocomplete="off" spellcheck="false" aria-label="Repo, as owner/name">
+        <input id="tokenIn" type="password" placeholder="Read-only GitHub key" autocomplete="off" aria-label="Read-only GitHub key">
+        <button id="repoSave" type="button" class="go">Connect</button>
+      </div>
+      <div id="repoOn" hidden>
+        <p>Connected to <b id="repoName"></b></p>
+        <p id="repoStatus" class="small" role="status"></p>
+        <div class="acts"><button id="repoCheck" type="button" class="ghost">Check now</button><button id="repoForget" type="button" class="ghost">Disconnect</button></div>
+      </div>
     </div>
 
     <div class="group help">

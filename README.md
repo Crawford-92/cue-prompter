@@ -22,14 +22,25 @@ It also works on a laptop: open the page there and it uses the webcam.
 - **Script cues.** `[pause]` and `(smile)` show as yellow cues. `*word*` adds emphasis.
 - **Filming queue.** Separate scripts with a `---` line to film them back to back.
 - **Script inbox.** New, opened and done status, so you can see what's left to film.
-- **Send to phone.** A QR code or link carries scripts from the computer to the phone. There's no account or server, because the script travels inside the link.
+- **Send to phone.** A QR code or link carries scripts from the computer to the phone. There's no account or server, because the script travels inside the link. Opening a script link on a computer shows the QR code straight away.
+- **Claude skill.** Claude formats scripts for the prompter and ends each one with a link. See "Use with Claude".
 - **Installable.** Add it to your home screen and it opens like an app, even offline.
 
-## Scripts folder
+## Use with Claude
 
-Scripts committed to the `scripts/` folder show up in the inbox on every device the next time the app is opened. That's how a Claude session can push scripts straight to your phone: it adds a `.md` file, runs `npm run scripts` to update `scripts/index.json`, then commits and pushes. [PUSHING-SCRIPTS.md](PUSHING-SCRIPTS.md) has the steps to give that session.
+Anyone can have Claude write their scripts and send them to their phone:
 
-Edits to a script that hasn't been filmed yet come through too. Removing a script from the inbox keeps it removed.
+1. Download [cue-prompter-skill.zip](cue-prompter-skill.zip) (it's also linked in the app's settings).
+2. In Claude, open Settings, find Skills, and upload the zip.
+3. Write a script with Claude. When it's final, Claude gives a link. Tap it on your phone and the script lands in the inbox. On a computer, opening the link shows a QR code to scan with the phone.
+
+Every script stays private to the person who wrote it. The script travels inside the link, after the `#`, which browsers never send to the website, and it's saved only on the device that opens it. There's no server or shared storage, so nobody can see anyone else's scripts. Anyone who has a link can read that one script, so don't post links publicly.
+
+The skill lives in [skill/cue-prompter](skill/cue-prompter). After editing it, run `npm run skill` to rebuild the zip.
+
+## Pushing scripts from Claude Code
+
+A Claude Code session can drop scripts straight into your inbox instead. It pushes them to your own **private** GitHub repo, and the app on your phone reads that repo with a read-only key you paste in once. The key never leaves your phone, and the app doesn't look for any repo until you connect one, so nobody else's app sees your scripts. [PUSHING-SCRIPTS.md](PUSHING-SCRIPTS.md) has the setup and the instructions to give that session.
 
 ## Script links
 
@@ -70,7 +81,7 @@ The camera only works over `https://`. GitHub Pages is free:
 ```
 npm run serve   # http://localhost:8080
 npm test        # logic tests
-npm run scripts # rebuild scripts/index.json after adding a script
+npm run skill   # rebuild cue-prompter-skill.zip after editing skill/
 ```
 
 ## Code

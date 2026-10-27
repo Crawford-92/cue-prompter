@@ -137,6 +137,14 @@ textarea::placeholder { color: var(--muted); }
 .slider output { color: var(--muted); font-variant-numeric: tabular-nums; }
 .slider input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 0; }
 .help p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
+.dl { text-decoration: none; background: var(--surface); }
+.repo > div { display: flex; flex-direction: column; gap: 10px; }
+.repo p { margin: 0; font-size: 15px; }
+.repo .small { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.repo .small.bad { color: #ff8a80; }
+.repo input { width: 100%; background: #111316; color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font: 16px var(--ui); }
+.repo input::placeholder { color: var(--muted); }
+.repo .go { padding: 13px; font-size: 16px; }
 .help b { color: var(--fg); font-weight: 600; }
 
 /* send to phone (computer only) */

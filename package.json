@@ -6,7 +6,7 @@
   "scripts": {
     "serve": "npx --yes serve -l 8080 .",
     "test": "node --test tests/core.test.js",
-    "scripts": "node tools/index-scripts.js"
+    "skill": "python -m zipfile -c cue-prompter-skill.zip skill/cue-prompter"
   },
   "license": "MIT"
 }

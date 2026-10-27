@@ -81,8 +81,15 @@ test("repoMerge adds new files, updates edits, links scripts already pasted in",
   assert.deepStrictEqual([lib[2].file, lib[2].status, lib[2].source], ["c.md", "new", "folder"]);
 });
 
-test("scripts/index.json matches the scripts folder (run npm run scripts)", () => {
-  const fs = require("fs"), path = require("path");
-  const onDisk = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "scripts", "index.json"), "utf8"));
-  assert.deepStrictEqual(onDisk, require("../tools/index-scripts.js").build());
+
+test("repoEntries keeps script files from a GitHub listing, newest name first", () => {
+  const e = Core.repoEntries([
+    { type: "file", name: "README.md", sha: "r" },
+    { type: "file", name: "2026-10-27-b.md", sha: "b" },
+    { type: "dir", name: "drafts", sha: "d" },
+    { type: "file", name: "2026-10-28-c.txt", sha: "c" },
+    { type: "file", name: "notes.json", sha: "n" },
+  ]);
+  assert.deepStrictEqual(e, [{ file: "2026-10-28-c.txt", hash: "c" }, { file: "2026-10-27-b.md", hash: "b" }]);
+  assert.deepStrictEqual(Core.repoEntries({ message: "Not Found" }), []);
 });

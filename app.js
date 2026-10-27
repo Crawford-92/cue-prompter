@@ -154,7 +154,16 @@ const Core = (() => {
     return { cuts: clean, dur, cleanDur: dur - cutTotal(clean) };
   }
 
-  // Scripts folder: which index entries ({file, hash}) need fetching.
+  // Private scripts repo: turn a GitHub contents listing into {file, hash} entries.
+  // Scripts are the .md and .txt files, apart from the README. Newest name first.
+  function repoEntries(listing) {
+    return (Array.isArray(listing) ? listing : [])
+      .filter(f => f && f.type === "file" && /\.(md|txt)$/i.test(f.name) && !/^readme\./i.test(f.name))
+      .map(f => ({ file: f.name, hash: f.sha }))
+      .sort((a, b) => (a.file < b.file ? 1 : -1));
+  }
+
+  // Which entries ({file, hash}) need fetching.
   // New files, plus edited files whose script hasn't been recorded or removed.
   function repoWanted(lib, entries) {
     return entries.filter(e => {
@@ -179,7 +188,7 @@ const Core = (() => {
     return added;
   }
 
-  return { norm, splitScripts, titleOf, parse, repoWanted, repoMerge, advance, logAdvance, wordStart, mergeCuts, inCut, mapTime, cutTotal, chunks, srt, srtTime, buildEdit };
+  return { norm, splitScripts, titleOf, parse, repoEntries, repoWanted, repoMerge, advance, logAdvance, wordStart, mergeCuts, inCut, mapTime, cutTotal, chunks, srt, srtTime, buildEdit };
 })();
 
 if (typeof module !== "undefined") module.exports = Core;
@@ -486,34 +495,67 @@ Try it tonight and tell me how you get on.`;
     const parts = Core.splitScripts(text);
     const n = addScripts(parts, "link");
     renderHome();
+    // On a computer you don't film, so show the code to carry the script on to the phone
+    if (parts.length && matchMedia("(pointer: fine)").matches && !matchMedia("(pointer: coarse)").matches) {
+      await showSend(parts, parts.length > 1 ? `${parts.length} scripts` : Core.titleOf(parts[0]));
+      $("qrNote").textContent = "Point your phone's camera at this code and tap the link. The script opens on your phone, ready to film.";
+      return;
+    }
     toast(n ? (n > 1 ? `${n} new scripts in your inbox` : "New script in your inbox") : "Already in your inbox");
   }
   window.addEventListener("hashchange", importFromHash);
 
-  /* scripts folder: Claude commits scripts to scripts/ and lists them in scripts/index.json */
+  /* Private scripts repo. Only set up on the owner's phone: the repo name and a read-only
+     GitHub key live in this device's storage and nowhere else. Without them nothing is fetched. */
+  let repoCfg = store.get("cue.repo", null);
   let syncing = false;
-  async function syncFolder() {
-    if (syncing || !navigator.onLine) return;
+  const gh = (path, raw) => fetch("https://api.github.com/repos/" + repoCfg.repo + "/contents/" + path, {
+    cache: "no-store",
+    headers: { Authorization: "Bearer " + repoCfg.token, Accept: raw ? "application/vnd.github.raw" : "application/vnd.github+json" }
+  });
+  function repoStatus(msg, bad) { const el = $("repoStatus"); el.textContent = msg; el.classList.toggle("bad", !!bad); }
+  async function syncRepo(loud) {
+    if (!repoCfg || syncing) return;
+    if (!navigator.onLine) { if (loud) repoStatus("You're offline. It'll check when you're back online.", true); return; }
     syncing = true;
     try {
-      const r = await fetch("scripts/index.json", { cache: "no-store" });
-      if (!r.ok) return;
-      const entries = ((await r.json()).scripts || []).filter(e => e && e.file);
+      const r = await gh("");
+      if (r.status === 401) { repoStatus("GitHub didn't accept the key. Make a new one and paste it in again.", true); return; }
+      if (r.status === 404) { repoStatus("Can't find that repo with this key. Check the name and that the key can read it.", true); return; }
+      if (!r.ok) { repoStatus("GitHub didn't answer (" + r.status + "). It'll try again next time.", true); return; }
+      const entries = Core.repoEntries(await r.json());
       const want = Core.repoWanted(lib, entries);
-      if (!want.length) return;
       const got = (await Promise.all(want.map(e =>
-        fetch("scripts/" + encodeURIComponent(e.file), { cache: "no-store" })
-          .then(res => res.ok ? res.text() : null)
-          .then(text => ({ ...e, text }))
-          .catch(() => null)
-      ))).filter(g => g && g.text != null && !/^\s*</.test(g.text));
+        gh(encodeURIComponent(e.file), true).then(res => res.ok ? res.text() : null).then(text => ({ ...e, text })).catch(() => null)
+      ))).filter(g => g && g.text != null);
       const n = Core.repoMerge(lib, got, Date.now(), uid);
       saveLib(); renderHome();
+      repoStatus(`Connected · ${entries.length} script${entries.length === 1 ? "" : "s"} in the repo · checked ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
       if (n && !$("home").hidden) toast(n > 1 ? `${n} new scripts in your inbox` : "New script in your inbox");
     } catch (e) {
+      repoStatus("Couldn't reach GitHub. It'll try again next time.", true);
     } finally { syncing = false; }
   }
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncFolder(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncRepo(); });
+
+  function renderRepo() {
+    $("repoOn").hidden = !repoCfg; $("repoOff").hidden = !!repoCfg;
+    if (repoCfg) $("repoName").textContent = repoCfg.repo;
+  }
+  $("repoSave").onclick = () => {
+    const repo = $("repoIn").value.trim().replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$|\/$/g, "");
+    const token = $("tokenIn").value.trim();
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) { $("repoIn").focus(); toast("Type the repo as owner/name, for example ryan/cue-scripts"); return; }
+    if (!token) { $("tokenIn").focus(); toast("Paste the key from GitHub"); return; }
+    repoCfg = { repo, token }; store.set("cue.repo", repoCfg);
+    $("tokenIn").value = ""; renderRepo(); repoStatus("Checking…"); syncRepo(true);
+  };
+  $("repoCheck").onclick = () => { repoStatus("Checking…"); syncRepo(true); };
+  $("repoForget").onclick = () => {
+    repoCfg = null; try { localStorage.removeItem("cue.repo"); } catch (e) {}
+    renderRepo(); toast("Disconnected. Scripts already in your inbox stay.");
+  };
+  renderRepo();
 
   /* ---------- rendering the script ---------- */
   function setFs() { document.documentElement.style.setProperty("--fs", S.size + "px"); }
@@ -1003,7 +1045,7 @@ Try it tonight and tell me how you get on.`;
   /* ---------- start ---------- */
   renderHome();
   importFromHash();
-  syncFolder();
+  syncRepo();
   $("installNote").hidden = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     navigator.serviceWorker.register("sw.js").catch(() => {});

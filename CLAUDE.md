@@ -10,12 +10,14 @@ The owner is Ryan, who films an AI-focused TikTok series. Keep it free to run: n
 - `qrcode.js` is vendored (qrcode-generator 1.4.4, MIT). Don't edit it.
 - `sw.js` and `manifest.webmanifest` make it an installable PWA that works offline. **Bump `CACHE` in `sw.js` whenever you change shipped files.**
 - Hosting target is GitHub Pages (deploy from `main`, root). The camera and mic need `https://` or `localhost`.
+- `skill/cue-prompter/` is the Claude skill (`SKILL.md` plus `scripts/make_link.py`, stdlib Python only). `npm run skill` rebuilds `cue-prompter-skill.zip`, which the site serves for download. Rebuild and commit the zip whenever the skill changes. The skill's link format (`#add=` plus the percent-encoded script) must keep working in `importFromHash`.
 
 ## Run and test
 
 ```
 npm run serve   # http://localhost:8080 (camera works on localhost)
 npm test        # unit tests for the Core logic (Node 18+)
+npm run skill   # rebuild the skill zip (needs Python)
 ```
 
 On Windows, if `npx serve` isn't wanted, `python -m http.server 8080` works too.
@@ -34,7 +36,9 @@ For browser testing, headless Chromium with `--use-fake-ui-for-media-stream --us
 2. **App** (an IIFE that runs only in the browser):
    - Inbox: scripts live in `localStorage` key `cue.lib` as `{id, text, created, status: new|opened|recorded, recordedAt?, archived?}`. Status is per device.
    - Send to phone: scripts travel in the URL hash, either `#z=` (deflate-raw plus base64url, used by the app's QR codes) or `#add=` (plain URL-encoded text, easy for other tools to build). `importFromHash` adds them on load and dedupes by text.
-   - Scripts folder: `syncFolder` fetches `scripts/index.json` (`{scripts: [{file, hash}]}`, built by `npm run scripts` from `tools/index-scripts.js`) on load and whenever the app comes back to the front. `Core.repoWanted` and `Core.repoMerge` decide what to fetch and merge. Inbox items from the folder carry `file` and `rev`. Only `.md` and `.txt` files in `scripts/` are scripts, so keep anything else out of that folder. `.nojekyll` stops GitHub Pages processing the `.md` files.
+   - Privacy rule: every person's scripts stay private to them. Scripts reach a device only by a link's `#fragment` (never sent to the server), by pasting, or from that person's own private repo. Never add anything that makes scripts readable from the public site or repo.
+   - Private scripts repo (optional, per device): `syncRepo` reads the GitHub contents API for the repo and read-only key saved in `localStorage` key `cue.repo` (`{repo, token}`, set in Settings). It runs on load and whenever the app comes back to the front, and does nothing when no repo is connected. `Core.repoEntries` turns the listing into `{file, hash}` (the file's git sha); `Core.repoWanted` and `Core.repoMerge` decide what to fetch and merge. Inbox items from the repo carry `file` and `rev`.
+   - Links opened on a computer (`pointer: fine`) show the Send to phone QR code straight away, since you film on the phone.
    - Inbox screen: the newest unfilmed script is the "Up next" card, then "To film" and "Filmed" lists. Settings and help are in a sheet behind the gear. Send to phone only shows on computers (`.desk-only`, hidden on touch screens).
    - Stage: camera, scrolling band, voice follow, timed fallback, hook timer, pace readout, TikTok safe-zone overlay. Bottom bar is adjust tray, record, and flip camera (which becomes Redo line while recording). Speed, text size, mode, safe zones and Rehearse live in the adjust tray (`#adj`).
    - Voice follow (`SpeechRecognition`) starts once when the stage opens and runs until you leave, restarting only on `onend`. Never start or stop it on play, record, stop or redo: each start and stop makes iPhones chime, even on silent, and the chime gets into the take. Pausing just ignores results, and `rebase()` makes it follow from the current word by skipping what's already in the current result.
@@ -53,4 +57,3 @@ For browser testing, headless Chromium with `--use-fake-ui-for-media-stream --us
 ## Ideas not built yet
 
 - Sync inbox status across devices (would need a backend or GitHub API writes with a token).
-- Per-person inboxes if this is shared with other creators.
