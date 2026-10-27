@@ -26,7 +26,7 @@ Paste this into the session's `CLAUDE.md`:
 When a script is final and ready to film, push it to my phone through my private scripts repo at `C:\Users\RyanC\Downloads\cue-scripts`:
 
 1. Save the script there as a new file named `YYYY-MM-DD-short-title.md` (for example `2026-10-27-ai-tools-week.md`). Use one script per file.
-2. Write only the words to be read out. The first line becomes the title in the inbox, so start with the hook. Separate paragraphs with a blank line. `[pause]` and `(smile)` show as cues, and `*word*` shows as emphasis. Leave out headings, labels such as "Hook:", shot notes, captions and hashtags.
+2. Write only the words to be read out. The first line becomes the title in the inbox, so start with the hook. Separate paragraphs with a blank line, and never use `---` lines, because a dashed line splits the file into separate scripts. `[pause]` and `(smile)` show as cues, and `*word*` shows as emphasis. Leave out headings, labels such as "Hook:", shot notes, captions and hashtags.
 3. Commit and push: `git -C "C:\Users\RyanC\Downloads\cue-scripts" add -A`, then `git -C "C:\Users\RyanC\Downloads\cue-scripts" commit -m "Script: <title>"`, then `git -C "C:\Users\RyanC\Downloads\cue-scripts" push`.
 
 The script appears in the phone's inbox, with a yellow dot, the next time the app is opened or brought back to the front. To fix a script that hasn't been filmed yet, edit its file, commit and push again. Once it's marked as filmed, edits are ignored.
