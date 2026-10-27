@@ -59,6 +59,13 @@ The camera only works over `https://`. GitHub Pages is free:
 - Building the clean video plays the take through once, so it takes about as long as the clean video runs. Keep the screen open while it runs.
 - Nothing is uploaded anywhere. Scripts and recordings stay on your device, and the inbox status is saved per device.
 
+## Develop
+
+```
+npm run serve   # http://localhost:8080
+npm test        # logic tests
+```
+
 ## Code
 
 - `index.html` is the markup.
@@ -66,3 +73,4 @@ The camera only works over `https://`. GitHub Pages is free:
 - `app.js` holds the app. The `Core` module at the top contains the pure logic (parsing, voice matching, cuts, captions). You can test it in Node with `require("./app.js")`.
 - `qrcode.js` is the QR library (qrcode-generator, MIT licence).
 - `sw.js`, `manifest.webmanifest` and `icons/` make it installable and let it work offline.
+- `CLAUDE.md` gives Claude Code the context for working on the project.

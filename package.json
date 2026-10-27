@@ -1,0 +1,11 @@
+{
+  "name": "cue-prompter",
+  "version": "1.0.0",
+  "description": "Free voice-follow teleprompter with redo cuts, captions and a script inbox",
+  "private": true,
+  "scripts": {
+    "serve": "npx --yes serve -l 8080 .",
+    "test": "node --test tests/"
+  },
+  "license": "MIT"
+}
