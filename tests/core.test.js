@@ -49,3 +49,40 @@ test("srt is shifted to clean-edit time", () => {
   // last caption ends 0.7 s after the final word (raw 10.2 s), minus the 2.08 s cut
   assert.ok(Math.abs(Math.max(...times) - 8.12) < 0.01, "times after the cut move earlier");
 });
+
+test("repoWanted fetches new files and edits to unrecorded scripts only", () => {
+  const lib = [
+    { file: "a.md", rev: "1", status: "new" },
+    { file: "b.md", rev: "1", status: "recorded" },
+    { file: "c.md", rev: "1", status: "opened", archived: true },
+  ];
+  const want = Core.repoWanted(lib, [
+    { file: "a.md", hash: "2" }, { file: "b.md", hash: "2" }, { file: "c.md", hash: "2" }, { file: "d.md", hash: "1" }, { file: "a.md", hash: "1" },
+  ]).map(e => e.file + e.hash);
+  assert.deepStrictEqual(want, ["a.md2", "d.md1"]);
+});
+
+test("repoMerge adds new files, updates edits, links scripts already pasted in", () => {
+  let n = 0;
+  const lib = [
+    { id: "x", file: "a.md", rev: "1", text: "Old", status: "opened" },
+    { id: "y", text: "Pasted already.", status: "new" },
+  ];
+  const added = Core.repoMerge(lib, [
+    { file: "a.md", hash: "2", text: "New\r\n" },
+    { file: "b.md", hash: "1", text: "Pasted already." },
+    { file: "c.md", hash: "1", text: "Brand new script." },
+    { file: "d.md", hash: "1", text: "   " },
+  ], 1000, () => "id" + n++);
+  assert.strictEqual(added, 1);
+  assert.strictEqual(lib.length, 3);
+  assert.deepStrictEqual([lib[0].text, lib[0].rev], ["New", "2"]);
+  assert.strictEqual(lib[1].file, "b.md");
+  assert.deepStrictEqual([lib[2].file, lib[2].status, lib[2].source], ["c.md", "new", "folder"]);
+});
+
+test("scripts/index.json matches the scripts folder (run npm run scripts)", () => {
+  const fs = require("fs"), path = require("path");
+  const onDisk = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "scripts", "index.json"), "utf8"));
+  assert.deepStrictEqual(onDisk, require("../tools/index-scripts.js").build());
+});

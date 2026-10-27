@@ -34,6 +34,7 @@ For browser testing, headless Chromium with `--use-fake-ui-for-media-stream --us
 2. **App** (an IIFE that runs only in the browser):
    - Inbox: scripts live in `localStorage` key `cue.lib` as `{id, text, created, status: new|opened|recorded, recordedAt?, archived?}`. Status is per device.
    - Send to phone: scripts travel in the URL hash, either `#z=` (deflate-raw plus base64url, used by the app's QR codes) or `#add=` (plain URL-encoded text, easy for other tools to build). `importFromHash` adds them on load and dedupes by text.
+   - Scripts folder: `syncFolder` fetches `scripts/index.json` (`{scripts: [{file, hash}]}`, built by `npm run scripts` from `tools/index-scripts.js`) on load and whenever the app comes back to the front. `Core.repoWanted` and `Core.repoMerge` decide what to fetch and merge. Inbox items from the folder carry `file` and `rev`. Only `.md` and `.txt` files in `scripts/` are scripts, so keep anything else out of that folder. `.nojekyll` stops GitHub Pages processing the `.md` files.
    - Stage: camera, scrolling band, voice follow (`SpeechRecognition`, restarted on `onend`), timed fallback, hook timer, pace readout, TikTok safe-zone overlay.
    - Recording: `MediaRecorder`. Redo line adds a cut from the end of the previous sentence to now plus 1.6 s, and rewinds the pointer.
    - Clean export: plays the raw take into a canvas, skips cut ranges at 4× with the recorder paused, burns captions, and re-records. It runs in real time.
@@ -50,5 +51,4 @@ For browser testing, headless Chromium with `--use-fake-ui-for-media-stream --us
 ## Ideas not built yet
 
 - Sync inbox status across devices (would need a backend or GitHub API writes with a token).
-- A "scripts" folder in the repo that the inbox reads, so Claude can push scripts by committing files.
 - Per-person inboxes if this is shared with other creators.

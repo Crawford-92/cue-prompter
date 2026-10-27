@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "serve": "npx --yes serve -l 8080 .",
-    "test": "node --test tests/core.test.js"
+    "test": "node --test tests/core.test.js",
+    "scripts": "node tools/index-scripts.js"
   },
   "license": "MIT"
 }

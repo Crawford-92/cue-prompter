@@ -154,7 +154,32 @@ const Core = (() => {
     return { cuts: clean, dur, cleanDur: dur - cutTotal(clean) };
   }
 
-  return { norm, splitScripts, titleOf, parse, advance, logAdvance, wordStart, mergeCuts, inCut, mapTime, cutTotal, chunks, srt, srtTime, buildEdit };
+  // Scripts folder: which index entries ({file, hash}) need fetching.
+  // New files, plus edited files whose script hasn't been recorded or removed.
+  function repoWanted(lib, entries) {
+    return entries.filter(e => {
+      const s = lib.find(x => x.file === e.file);
+      return !s || (s.rev !== e.hash && !s.archived && s.status !== "recorded");
+    });
+  }
+
+  // Merge fetched files ({file, hash, text}) into the inbox. Returns how many are new.
+  function repoMerge(lib, got, now, uid) {
+    let added = 0;
+    got.forEach((g, k) => {
+      const text = String(g.text).replace(/\r/g, "").trim();
+      if (!text) return;
+      const s = lib.find(x => x.file === g.file);
+      if (s) { if (!s.archived && s.status !== "recorded") { s.text = text; s.rev = g.hash; } return; }
+      const dup = lib.find(x => !x.archived && !x.file && x.text === text);
+      if (dup) { dup.file = g.file; dup.rev = g.hash; return; }
+      lib.push({ id: uid() + k, text, created: now - k, status: "new", source: "folder", file: g.file, rev: g.hash });
+      added++;
+    });
+    return added;
+  }
+
+  return { norm, splitScripts, titleOf, parse, repoWanted, repoMerge, advance, logAdvance, wordStart, mergeCuts, inCut, mapTime, cutTotal, chunks, srt, srtTime, buildEdit };
 })();
 
 if (typeof module !== "undefined") module.exports = Core;
@@ -427,6 +452,31 @@ Try it tonight and tell me how you get on.`;
     toast(n ? (n > 1 ? `${n} new scripts in your inbox` : "New script in your inbox") : "Already in your inbox");
   }
   window.addEventListener("hashchange", importFromHash);
+
+  /* scripts folder: Claude commits scripts to scripts/ and lists them in scripts/index.json */
+  let syncing = false;
+  async function syncFolder() {
+    if (syncing || !navigator.onLine) return;
+    syncing = true;
+    try {
+      const r = await fetch("scripts/index.json", { cache: "no-store" });
+      if (!r.ok) return;
+      const entries = ((await r.json()).scripts || []).filter(e => e && e.file);
+      const want = Core.repoWanted(lib, entries);
+      if (!want.length) return;
+      const got = (await Promise.all(want.map(e =>
+        fetch("scripts/" + encodeURIComponent(e.file), { cache: "no-store" })
+          .then(res => res.ok ? res.text() : null)
+          .then(text => ({ ...e, text }))
+          .catch(() => null)
+      ))).filter(g => g && g.text != null && !/^\s*</.test(g.text));
+      const n = Core.repoMerge(lib, got, Date.now(), uid);
+      saveLib(); renderHome();
+      if (n && !$("home").hidden) toast(n > 1 ? `${n} new scripts in your inbox` : "New script in your inbox");
+    } catch (e) {
+    } finally { syncing = false; }
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncFolder(); });
 
   /* ---------- rendering the script ---------- */
   function setFs() { document.documentElement.style.setProperty("--fs", S.size + "px"); }
@@ -904,6 +954,7 @@ Try it tonight and tell me how you get on.`;
   /* ---------- start ---------- */
   renderHome();
   importFromHash();
+  syncFolder();
   $("installNote").hidden = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     navigator.serviceWorker.register("sw.js").catch(() => {});

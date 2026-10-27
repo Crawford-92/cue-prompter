@@ -1,6 +1,6 @@
 // Cue Prompter service worker: lets the app open offline.
 // Network first, so updates show up straight away when you're online.
-const CACHE = "cue-v3";
+const CACHE = "cue-v4";
 const SHELL = ["./", "index.html", "style.css", "app.js", "qrcode.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -30,6 +30,6 @@ self.addEventListener("fetch", e => {
         }
         return res;
       })
-      .catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match("index.html")))
+      .catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || (req.mode === "navigate" ? caches.match("index.html") : Response.error())))
   );
 });

@@ -25,6 +25,12 @@ It also works on a laptop: open the page there and it uses the webcam.
 - **Send to phone.** A QR code or link carries scripts from the computer to the phone. There's no account or server, because the script travels inside the link.
 - **Installable.** Add it to your home screen and it opens like an app, even offline.
 
+## Scripts folder
+
+Scripts committed to the `scripts/` folder show up in the inbox on every device the next time the app is opened. That's how a Claude session can push scripts straight to your phone: it adds a `.md` file, runs `npm run scripts` to update `scripts/index.json`, then commits and pushes. [PUSHING-SCRIPTS.md](PUSHING-SCRIPTS.md) has the steps to give that session.
+
+Edits to a script that hasn't been filmed yet come through too. Removing a script from the inbox keeps it removed.
+
 ## Script links
 
 Any tool can send a script by building a link:
@@ -64,6 +70,7 @@ The camera only works over `https://`. GitHub Pages is free:
 ```
 npm run serve   # http://localhost:8080
 npm test        # logic tests
+npm run scripts # rebuild scripts/index.json after adding a script
 ```
 
 ## Code
