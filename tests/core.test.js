@@ -46,5 +46,6 @@ test("srt is shifted to clean-edit time", () => {
   const srt = Core.srt(Core.chunks(W, at), [[3.12, 5.2]]);
   assert.match(srt, /^1\n00:00:00,000 --> /);
   const times = [...srt.matchAll(/(\d\d):(\d\d):(\d\d),(\d{3})/g)].map(m => +m[3] + m[4] / 1000);
-  assert.ok(Math.max(...times) < 9.5 - 2.0, "times after the cut move earlier");
+  // last caption ends 0.7 s after the final word (raw 10.2 s), minus the 2.08 s cut
+  assert.ok(Math.abs(Math.max(...times) - 8.12) < 0.01, "times after the cut move earlier");
 });
