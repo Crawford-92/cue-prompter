@@ -748,7 +748,8 @@ Try it tonight and tell me how you get on.`;
     try {
       S.stream = await navigator.mediaDevices.getUserMedia({
         video: Object.assign({ facingMode: S.front ? "user" : "environment", frameRate: { ideal: 30 } },
-          innerWidth > innerHeight ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : { width: { ideal: 1080 }, height: { ideal: 1920 } }),
+          // upright, ask for 4K: iPhones send landscape frames, and a 9:16 crop of 4K is a sharp 1080×1920
+          innerWidth > innerHeight ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : { width: { ideal: 3840 }, height: { ideal: 2160 } }),
         audio: { echoCancellation: true, noiseSuppression: true }
       });
       const v = $("cam"); v.srcObject = S.stream; v.classList.toggle("mirror", S.mirror && S.front);
@@ -820,6 +821,25 @@ Try it tonight and tell me how you get on.`;
     return "camera controls: " + (have.length ? have.join("; ") : "none of exposure/focus/zoom") + "\nother capabilities: " + other.join(", ");
   }
 
+  // iPhones send landscape frames even when held upright, and the preview hides it by cropping
+  // to fill the screen. When filming upright, record a centred 9:16 crop through a canvas so
+  // the take matches what you saw. Portrait frames, and landscape filming, record directly.
+  function recordStream() {
+    const v = $("cam"), vw = v.videoWidth, vh = v.videoHeight;
+    if (innerHeight <= innerWidth || !vw || vh >= vw || !HTMLCanvasElement.prototype.captureStream) return S.stream;
+    const cw = Math.round(vh * 9 / 16), sx = Math.round((vw - cw) / 2);
+    const k = Math.min(1, 1920 / vh), W = Math.round(cw * k / 2) * 2, H = Math.round(vh * k / 2) * 2;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    const live = S.cropGen = (S.cropGen || 0) + 1;
+    const next = () => v.requestVideoFrameCallback ? v.requestVideoFrameCallback(draw) : requestAnimationFrame(draw);
+    function draw() { if (live !== S.cropGen) return; ctx.drawImage(v, sx, 0, cw, vh, 0, 0, W, H); next(); }
+    draw();
+    S.cropTrack = c.captureStream(30).getVideoTracks()[0];
+    return new MediaStream([S.cropTrack, ...S.stream.getAudioTracks()]);
+  }
+  function stopCrop() { S.cropGen = (S.cropGen || 0) + 1; if (S.cropTrack) { S.cropTrack.stop(); S.cropTrack = null; } }
+
   async function startRec() {
     if (!S.stream) { showErr("The camera isn't running yet."); return; }
     if (DEBUG) S.dbgStart = camInfo();
@@ -830,8 +850,9 @@ Try it tonight and tell me how you get on.`;
     await countdown(3);
     $("rec").disabled = false;
     S.chunks = []; S.at = new Array(S.words.length).fill(null); S.cuts = []; S.redos = 0; S.lastT = 0;
-    try { S.mr = type ? new MediaRecorder(S.stream, { mimeType: type, videoBitsPerSecond: 8e6 }) : new MediaRecorder(S.stream); }
-    catch (e) { showErr("Recording didn't start: " + e.message); return; }
+    const src = recordStream();
+    try { S.mr = type ? new MediaRecorder(src, { mimeType: type, videoBitsPerSecond: 8e6 }) : new MediaRecorder(src); }
+    catch (e) { stopCrop(); showErr("Recording didn't start: " + e.message); return; }
     S.mr.ondataavailable = e => { if (e.data && e.data.size) S.chunks.push(e.data); };
     S.mr.onstop = finishRec;
     S.recStart = performance.now();
@@ -888,6 +909,7 @@ Try it tonight and tell me how you get on.`;
   $("rec").onclick = () => { S.recording ? stopRec() : startRec(); };
 
   function finishRec() {
+    stopCrop();
     clearInterval(S.timerId); clearTimeout(S.hookTimer); clearTimeout(S.autoStop); S.autoStop = 0;
     $("band").classList.remove("hook"); $("hookbar").classList.remove("run");
     S.recording = false; document.body.classList.remove("recording");
