@@ -1,6 +1,6 @@
 // Cue Prompter service worker: lets the app open offline.
 // Network first, so updates show up straight away when you're online.
-const CACHE = "cue-v8";
+const CACHE = "cue-v9";
 const SHELL = ["./", "index.html", "style.css", "app.js", "qrcode.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {

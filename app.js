@@ -808,6 +808,17 @@ Try it tonight and tell me how you get on.`;
       ` · preview frames ${v.videoWidth}×${v.videoHeight} · screen ${innerWidth}×${innerHeight}` +
       ` · orientation ${(screen.orientation && screen.orientation.type) || window.orientation}`;
   }
+  // which camera controls (exposure, focus point, zoom...) this browser lets a web page use
+  function camControls() {
+    const tr = S.stream && S.stream.getVideoTracks()[0];
+    if (!tr || !tr.getCapabilities) return "camera controls: getCapabilities not supported";
+    const caps = tr.getCapabilities(), st = tr.getSettings ? tr.getSettings() : {};
+    const want = ["exposureMode", "exposureCompensation", "exposureTime", "iso", "brightness", "pointsOfInterest", "focusMode", "focusDistance", "whiteBalanceMode", "zoom", "torch"];
+    const fmtCap = c => Array.isArray(c) ? c.join("/") : (c && typeof c === "object" ? `${c.min}..${c.max}${c.step ? " step " + c.step : ""}` : String(c));
+    const have = want.filter(k => k in caps).map(k => `${k}: ${fmtCap(caps[k])}${k in st ? " (now " + JSON.stringify(st[k]) + ")" : ""}`);
+    const other = Object.keys(caps).filter(k => !want.includes(k));
+    return "camera controls: " + (have.length ? have.join("; ") : "none of exposure/focus/zoom") + "\nother capabilities: " + other.join(", ");
+  }
 
   async function startRec() {
     if (!S.stream) { showErr("The camera isn't running yet."); return; }
@@ -911,7 +922,7 @@ Try it tonight and tell me how you get on.`;
     if (DEBUG) {
       let d = $("dbg");
       if (!d) { d = document.createElement("pre"); d.id = "dbg"; d.style.cssText = "white-space:pre-wrap;font:12px ui-monospace,Menlo,monospace;color:#9ba2ae;background:#15171b;border-radius:12px;padding:12px;margin:0;user-select:text"; $("stats").after(d); }
-      const lines = ["At record start: " + S.dbgStart, "At stop: " + camInfo(), "Recorded as " + S.raw.type + ", " + Math.round(S.raw.blob.size / 1024) + " KB"];
+      const lines = ["At record start: " + S.dbgStart, "At stop: " + camInfo(), camControls(), "Recorded as " + S.raw.type + ", " + Math.round(S.raw.blob.size / 1024) + " KB"];
       d.textContent = lines.join("\n");
       $("playback").addEventListener("loadedmetadata", () => {
         d.textContent = lines.concat("Recorded frames " + $("playback").videoWidth + "×" + $("playback").videoHeight, navigator.userAgent).join("\n");
