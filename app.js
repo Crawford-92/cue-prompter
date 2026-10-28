@@ -799,8 +799,19 @@ Try it tonight and tell me how you get on.`;
     });
   }
 
+  // Open the app with ?debug to see camera and recording sizes on the result screen
+  const DEBUG = /[?&]debug\b/.test(location.search);
+  function camInfo() {
+    const tr = S.stream && S.stream.getVideoTracks()[0], st = tr && tr.getSettings ? tr.getSettings() : {};
+    const v = $("cam");
+    return `camera track ${st.width}×${st.height}` + (st.aspectRatio ? ` (aspect ${(+st.aspectRatio).toFixed(3)})` : "") +
+      ` · preview frames ${v.videoWidth}×${v.videoHeight} · screen ${innerWidth}×${innerHeight}` +
+      ` · orientation ${(screen.orientation && screen.orientation.type) || window.orientation}`;
+  }
+
   async function startRec() {
     if (!S.stream) { showErr("The camera isn't running yet."); return; }
+    if (DEBUG) S.dbgStart = camInfo();
     const type = pickType();
     if (type === null) { showErr("This browser can't record video. The prompter still works, so you can film with another app."); return; }
     setPlaying(false); setPtr(0, false); S.ptrF = 0; S.offset = 0; closeAdj();
@@ -897,6 +908,15 @@ Try it tonight and tell me how you get on.`;
     const slug = Core.titleOf(S.scripts[S.qi].text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32) || "take";
     const name = slug + "-" + stamp();
     $("playback").src = S.raw.url;
+    if (DEBUG) {
+      let d = $("dbg");
+      if (!d) { d = document.createElement("pre"); d.id = "dbg"; d.style.cssText = "white-space:pre-wrap;font:12px ui-monospace,Menlo,monospace;color:#9ba2ae;background:#15171b;border-radius:12px;padding:12px;margin:0;user-select:text"; $("stats").after(d); }
+      const lines = ["At record start: " + S.dbgStart, "At stop: " + camInfo(), "Recorded as " + S.raw.type + ", " + Math.round(S.raw.blob.size / 1024) + " KB"];
+      d.textContent = lines.join("\n");
+      $("playback").addEventListener("loadedmetadata", () => {
+        d.textContent = lines.concat("Recorded frames " + $("playback").videoWidth + "×" + $("playback").videoHeight, navigator.userAgent).join("\n");
+      }, { once: true });
+    }
     $("dlRaw").href = S.raw.url; $("dlRaw").download = name + "-raw." + S.raw.ext;
     const srt = Core.srt(S.capChunks, e.cuts);
     if (S.srtUrl) URL.revokeObjectURL(S.srtUrl);
